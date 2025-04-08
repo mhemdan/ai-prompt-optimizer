@@ -3,19 +3,25 @@ import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
 
-// System prompt (keep this)
-const systemPrompt = `
-You are an AI prompt optimizer. Your task is to take the user's input prompt and improve it for clarity, specificity, and effectiveness when used with AI coding tools like Cursor AI or Continue Dev. Return only the optimized prompt without additional commentary.
-Example:
-- Input: "Write some code"
-- Output: "Generate a Python function with clear variable names and error handling for a specific task"
+// New System Prompt for conversational optimization
+const conversationalSystemPrompt = `
+You are an AI prompt optimizer. Your goal is to refine a user's initial prompt to make it clear, specific, and effective for AI coding tools.
+
+1.  Analyze the user's input prompt.
+2.  If the prompt is clear and detailed enough, return the final, optimized prompt directly, prefixed with "Optimized Prompt:".
+3.  If the prompt is vague or lacks necessary details (e.g., target language, desired output format, specific constraints), ask a single, specific clarifying question to gather the missing information. Do NOT prefix questions with anything.
+4.  Once you have enough information after asking questions, provide the final, optimized prompt, prefixed with "Optimized Prompt:".
+5.  Be concise. Do not add conversational filler.
 `;
+
+// Use the new system prompt
+const systemPrompt = conversationalSystemPrompt;
 
 // Default config (keep this)
 const defaultConfig = {
   apiUrl: "https://openrouter.ai/api/v1/chat/completions",
   apiKey: "",
-  model: "openai/gpt-4o-mini"
+  model: "openai/gpt-4o-mini" // Consider if a more powerful model is better for conversation
 };
 
 export function activate(context: vscode.ExtensionContext) {
@@ -33,10 +39,11 @@ export function activate(context: vscode.ExtensionContext) {
   // --- End Add View Provider ---
 
   // Register the 'Copy Optimized Prompt' command (keep this)
+  // Note: This might need adjustment depending on how the final UI presents the result
   context.subscriptions.push(
     vscode.commands.registerCommand('ai-prompt-optimizer.copyPrompt', (prompt: string) => {
       vscode.env.clipboard.writeText(prompt);
-      vscode.window.showInformationMessage('Optimized prompt copied to clipboard!');
+      vscode.window.showInformationMessage('Copied to clipboard!');
     })
   );
 
@@ -59,14 +66,9 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Register the 'Show View' command (add this)
+  // Register the 'Show View' command (keep this)
   context.subscriptions.push(
     vscode.commands.registerCommand('ai-prompt-optimizer.showView', () => {
-      // This command is less critical now as the activity bar icon will show the view,
-      // but it's good practice to have it. It might require focusing the view if already open.
-      // For simplicity, we'll just log for now. A more robust implementation
-      // might use vscode.commands.executeCommand('workbench.view.extension.ai-prompt-optimizer-activitybar');
-      // or focus the specific view if needed.
       console.log("Command 'ai-prompt-optimizer.showView' called.");
       // Attempt to reveal the view container
        vscode.commands.executeCommand('workbench.view.extension.ai-prompt-optimizer-activitybar');
@@ -80,6 +82,7 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'aiPromptOptimizerView'; // Must match the ID in package.json
 
   private _view?: vscode.WebviewView;
+  private _conversationHistory: { role: string; content: string }[] = []; // Store conversation history
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -107,29 +110,69 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async data => {
       switch (data.type) {
-        case 'optimizePrompt':
+        case 'optimizePrompt': // Renamed from 'optimizePrompt' in JS, should be 'sendMessage' or similar
           {
-            // --- Restore API Call Logic Here ---
-            console.log("Received prompt from webview:", data.value);
-            // Placeholder: Send back the original prompt for now
-            // TODO: Implement the actual API call using data.value as userPrompt
-            // Need to read config, make axios call, handle errors, postMessage result
+            const userMessageContent = data.value;
+            console.log("Received message from webview:", userMessageContent);
+
+            // If it's the first message, initialize history
+            if (this._conversationHistory.length === 0) {
+                this._conversationHistory.push({ role: "system", content: systemPrompt });
+            }
+            // Add user's message to history
+            this._conversationHistory.push({ role: "user", content: userMessageContent });
+
+            // Show loading/thinking state in webview
+            this._view?.webview.postMessage({ type: 'showLoading' });
 
             try {
-                const optimizedPrompt = await this._optimizePromptApiCall(data.value);
-                this._view?.webview.postMessage({ type: 'showResult', value: optimizedPrompt });
+                // Call API with current history
+                const aiResponseMessage = await this._optimizePromptApiCall(this._conversationHistory);
+
+                // Add AI's response to history
+                this._conversationHistory.push(aiResponseMessage);
+
+                // Send AI response content to webview
+                this._view?.webview.postMessage({ type: 'addMessage', role: aiResponseMessage.role, value: aiResponseMessage.content });
+
+                // If the response is the final optimized prompt, maybe clear history for next time?
+                // Or allow further refinement? For now, keep history.
+                // if (aiResponseMessage.content.startsWith("Optimized Prompt:")) {
+                //     // Optional: Clear history after final prompt?
+                //     // this._conversationHistory = [];
+                // }
+
             } catch (error: any) {
                 const errorMessage = error.message || 'An unknown error occurred during optimization.';
                 console.error("Optimization Error:", error);
                 vscode.window.showErrorMessage(`Optimization Failed: ${errorMessage}`);
-                // Optionally send error back to webview
                 this._view?.webview.postMessage({ type: 'showError', value: `API Error: ${errorMessage}` });
+                // Remove the last user message and potentially the system prompt if the call failed early
+                if (this._conversationHistory.length > 0 && this._conversationHistory[this._conversationHistory.length - 1].role === 'user') {
+                    this._conversationHistory.pop();
+                    if (this._conversationHistory.length === 1 && this._conversationHistory[0].role === 'system') {
+                        this._conversationHistory = []; // Reset if only system prompt remains after user pop
+                    }
+                }
             }
             break;
           }
+        case 'clearChat': // Add a way to clear the chat/history
+            {
+                this._conversationHistory = [];
+                this._view?.webview.postMessage({ type: 'clearChat' }); // Tell webview to clear its display
+                console.log("Conversation history cleared.");
+                break;
+            }
         case 'copyToClipboard': // Handle copy request from webview
           {
-            vscode.env.clipboard.writeText(data.value);
+            // Ensure we copy only the *final* optimized prompt content if possible
+            const finalPromptPrefix = "Optimized Prompt:";
+            let textToCopy = data.value;
+            if (textToCopy.startsWith(finalPromptPrefix)) {
+                textToCopy = textToCopy.substring(finalPromptPrefix.length).trim();
+            }
+            vscode.env.clipboard.writeText(textToCopy);
             vscode.window.showInformationMessage('Optimized prompt copied to clipboard!');
             break;
           }
@@ -140,76 +183,48 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  // Placeholder for the actual API call logic
-  private async _optimizePromptApiCall(userPrompt: string): Promise<string> {
+  // Modified to accept history and return the full message object
+  private async _optimizePromptApiCall(messages: { role: string; content: string }[]): Promise<{ role: string; content: string }> {
       let apiUrl: string | undefined;
       let apiKey: string | undefined;
       let model: string | undefined;
 
-      // Ensure the config directory exists (redundant check, but safe)
-      if (!fs.existsSync(this._configDir)) {
-          fs.mkdirSync(this._configDir, { recursive: true });
-      }
-
-      // Check if the config file exists, create if not
+      // --- Config reading logic (same as before) ---
+      if (!fs.existsSync(this._configDir)) { fs.mkdirSync(this._configDir, { recursive: true }); }
       if (!fs.existsSync(this._configPath)) {
           console.log("Configuration file not found, creating default:", this._configPath);
           try {
               fs.writeFileSync(this._configPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
-              apiUrl = defaultConfig.apiUrl;
-              apiKey = defaultConfig.apiKey; // Will be empty, causing error below
-              model = defaultConfig.model;
+              apiUrl = defaultConfig.apiUrl; apiKey = defaultConfig.apiKey; model = defaultConfig.model;
               vscode.window.showWarningMessage("Config file created. Please run 'AI Prompt Optimizer: Configure' to add your API key.");
-          } catch (error: any) {
-              console.error("Error creating default config file:", error);
-              throw new Error(`Failed to create config file: ${error.message}. Please run the Configure command.`);
-          }
+          } catch (error: any) { throw new Error(`Failed to create config file: ${error.message}. Please run the Configure command.`); }
       } else {
-          // Read and parse the config file
           try {
               const config = JSON.parse(fs.readFileSync(this._configPath, 'utf-8'));
-              console.log("Loaded configuration:", config);
-              apiUrl = config.apiUrl;
-              apiKey = config.apiKey;
-              model = config.model || defaultConfig.model; // Use default model if not specified
-          } catch (error: any) {
-              console.error("Error reading config.json:", error);
-              throw new Error(`Error reading config.json: ${error.message}. Run the Configure command to fix it.`);
-          }
+              apiUrl = config.apiUrl; apiKey = config.apiKey; model = config.model || defaultConfig.model;
+          } catch (error: any) { throw new Error(`Error reading config.json: ${error.message}. Run the Configure command to fix it.`); }
       }
+      if (!apiUrl || !apiKey) { throw new Error("Missing API URL or key in config.json. Run the 'AI Prompt Optimizer: Configure' command."); }
+      // --- End Config reading logic ---
 
-      // Check if API URL and key are available
-      if (!apiUrl || !apiKey) {
-          console.log("Missing API URL or key in config.json");
-          throw new Error("Missing API URL or key in config.json. Run the 'AI Prompt Optimizer: Configure' command.");
-      }
-
-      // Make the API request to optimize the prompt
       try {
-          console.log("Making API request to:", apiUrl);
+          console.log("Making API request with history:", messages);
           const response = await axios.post(
               apiUrl,
               {
                   model: model,
-                  messages: [
-                      { role: "system", content: systemPrompt },
-                      { role: "user", content: userPrompt }
-                  ],
-                  max_tokens: 150,
+                  messages: messages, // Send the whole history
+                  max_tokens: 250, // Increased max_tokens slightly for conversation
                   temperature: 0.7
               },
-              {
-                  headers: {
-                      "Authorization": `Bearer ${apiKey}`,
-                      "Content-Type": "application/json"
-                  }
-              }
+              { headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" } }
           );
 
           console.log("API Response:", response.data);
 
           if (response.data && response.data.choices && response.data.choices.length > 0 && response.data.choices[0].message) {
-              return response.data.choices[0].message.content.trim();
+              // Return the full message object (role: 'assistant', content: '...')
+              return response.data.choices[0].message;
           } else {
               console.error("Unexpected API response structure:", response.data);
               throw new Error("Received an unexpected response structure from the API.");
@@ -219,10 +234,7 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
           console.error("🔥 API call failed:", {
               url: apiUrl,
               model: model,
-              headers: {
-                  Authorization: `Bearer ${apiKey?.slice(0, 6)}...`,
-                  "Content-Type": "application/json"
-              },
+              // Avoid logging full history here for brevity/privacy if needed
               error: error.response?.data || error.message
           });
 
@@ -232,6 +244,7 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
   }
 
 
+  // --- _getHtmlForWebview needs update for chat display ---
   private _getHtmlForWebview(webview: vscode.Webview): string {
     // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.js'));
@@ -244,35 +257,35 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
     // Use a nonce to only allow specific scripts to be run
     const nonce = getNonce();
 
+    // Updated HTML structure for basic chat display
     return `<!DOCTYPE html>
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
-
-				<!--
-					Use a content security policy to only allow loading styles from our extension directory,
-					and only allow running scripts that have a specific nonce.
-				-->
 				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
-
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 				<link href="${styleResetUri}" rel="stylesheet">
 				<link href="${styleVSCodeUri}" rel="stylesheet">
 				<link href="${styleMainUri}" rel="stylesheet">
-
 				<title>AI Prompt Optimizer</title>
 			</head>
 			<body>
-        <h2>Optimize AI Prompt</h2>
-				<textarea id="prompt-input" rows="5" placeholder="Enter your prompt here..."></textarea>
-        <button id="optimize-button">Optimize</button>
+                <h2>Optimize AI Prompt</h2>
 
-        <hr>
-        <h3>Optimized Prompt:</h3>
-        <div id="result-output" style="white-space: pre-wrap; word-wrap: break-word;"></div>
-        <button id="copy-button" style="display: none;">Copy Result</button>
+                <div id="conversation-area" class="conversation-area">
+                    <!-- Conversation history will be appended here by JS -->
+                </div>
 
+                <div class="input-area">
+                    <textarea id="prompt-input" rows="3" placeholder="Enter your initial prompt or reply here..."></textarea>
+                    <div class="button-group">
+                        <button id="send-button">Send</button>
+                        <button id="clear-button">Clear Chat</button>
+                    </div>
+                </div>
+
+                <!-- Copy button might be added dynamically by JS later -->
+                <button id="copy-button" style="display: none; margin-top: 10px;">Copy Final Prompt</button>
 
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>

@@ -1,32 +1,73 @@
 body {
-	padding: 15px;
+	padding: 10px;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 20px); /* Full height minus padding */
+}
+
+h2 {
+    margin-bottom: 10px;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.conversation-area {
+    flex-grow: 1; /* Take available space */
+    border: 1px solid var(--vscode-editorWidget-border, var(--vscode-separator-foreground));
+    padding: 8px;
+    margin-bottom: 10px;
+    overflow-y: auto; /* Enable scrolling */
+    background-color: var(--vscode-textBlockQuote-background, var(--vscode-editorWidget-background));
+    border-radius: 3px;
+}
+
+.message {
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border-radius: 5px;
+    white-space: pre-wrap; /* Preserve whitespace and wrap */
+    word-wrap: break-word;
+}
+
+.user-message {
+    background-color: var(--vscode-list-activeSelectionBackground, #094771); /* Use selection background or a fallback */
+    color: var(--vscode-list-activeSelectionForeground, white);
+    text-align: right; /* Align user messages to the right */
+    margin-left: 20%; /* Indent from left */
+}
+
+.assistant-message {
+    background-color: var(--vscode-list-inactiveSelectionBackground, var(--vscode-editorWidget-background, #37373d)); /* Use inactive selection or editor widget background */
+    color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
+    text-align: left;
+    margin-right: 20%; /* Indent from right */
+}
+
+.input-area {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0; /* Prevent shrinking */
 }
 
 textarea#prompt-input {
 	width: calc(100% - 16px); /* Adjust for padding */
-	margin-bottom: 10px;
-	resize: vertical; /* Allow vertical resizing */
+	margin-bottom: 5px; /* Smaller margin */
+	resize: vertical;
+    min-height: 40px; /* Minimum height */
+    max-height: 150px; /* Maximum height before scrolling */
 }
 
-button#optimize-button {
-	display: block;
-	width: 100%;
-	margin-bottom: 15px;
+.button-group {
+    display: flex;
+    gap: 5px; /* Space between buttons */
 }
 
-#result-output {
-	background-color: var(--vscode-textBlockQuote-background, var(--vscode-editorWidget-background));
-	border: 1px solid var(--vscode-textBlockQuote-border, var(--vscode-editorWidget-border));
-	padding: 10px;
-	min-height: 50px;
-	border-radius: 3px;
-	margin-bottom: 10px;
-	font-family: var(--vscode-editor-font-family, var(--vscode-font-family)); /* Use editor font if available */
+.button-group button {
+    flex-grow: 1; /* Make buttons share space */
 }
 
 button#copy-button {
     display: none; /* Hidden by default */
-    margin-top: 5px;
-    width: auto; /* Don't force full width */
-    float: right; /* Position to the right */
+    margin-top: 10px;
+    width: 100%; /* Full width */
+    flex-shrink: 0;
 }
