@@ -1,0 +1,78 @@
+{
+  "name": "ai-prompt-optimizer",
+  "displayName": "AI Prompt Optimizer",
+  "description": "Optimize prompts for AI coding tools like Cursor AI and Continue Dev",
+  "version": "0.0.1",
+  "publisher": "mohamedhemdan",
+  "engines": {
+    "vscode": "^1.87.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:aiPromptOptimizerView"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ai-prompt-optimizer.copyPrompt",
+        "title": "Copy Optimized Prompt"
+      },
+      {
+        "command": "ai-prompt-optimizer.showView",
+        "title": "Show AI Prompt Optimizer"
+      },
+      {
+        "command": "ai-prompt-optimizer.configure",
+        "title": "AI Prompt Optimizer: Configure"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ai-prompt-optimizer-activitybar",
+          "title": "AI Prompt Optimizer",
+          "icon": "$(lightbulb)"
+        }
+      ]
+    },
+    "views": {
+      "ai-prompt-optimizer-activitybar": [
+        {
+          "id": "aiPromptOptimizerView",
+          "name": "Optimize Prompt",
+          "type": "webview",
+          "contextualTitle": "AI Prompt Optimizer"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run esbuild",
+    "esbuild": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "watch": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --watch",
+    "compile": "tsc -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.87.0",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.23.0",
+    "typescript": "^5.8.2",
+    "esbuild": "^0.23.1",
+    "@types/axios": "^0.14.0"
+  },
+  "dependencies": {
+    "axios": "^1.7.7"
+  }
+}

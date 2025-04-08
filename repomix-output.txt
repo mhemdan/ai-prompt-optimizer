@@ -1,0 +1,541 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+================================================================
+File Summary
+================================================================
+
+Purpose:
+--------
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+
+File Format:
+------------
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Multiple file entries, each consisting of:
+  a. A separator line (================)
+  b. The file path (File: path/to/file)
+  c. Another separator line
+  d. The full contents of the file
+  e. A blank line
+
+Usage Guidelines:
+-----------------
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+
+Notes:
+------
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+
+Additional Info:
+----------------
+
+================================================================
+Directory Structure
+================================================================
+src/
+  test/
+    extension.test.ts
+  extension.ts
+.gitignore
+.vscode-test.mjs
+.vscodeignore
+CHANGELOG.md
+config.json
+eslint.config.mjs
+package.json
+README.md
+tsconfig.json
+vsc-extension-quickstart.md
+
+================================================================
+Files
+================================================================
+
+================
+File: src/test/extension.test.ts
+================
+import * as assert from 'assert';
+
+// You can import and use all API from the 'vscode' module
+// as well as import your extension to test it
+import * as vscode from 'vscode';
+// import * as myExtension from '../../extension';
+
+suite('Extension Test Suite', () => {
+	vscode.window.showInformationMessage('Start all tests.');
+
+	test('Sample test', () => {
+		assert.strictEqual(-1, [1, 2, 3].indexOf(5));
+		assert.strictEqual(-1, [1, 2, 3].indexOf(0));
+	});
+});
+
+================
+File: src/extension.ts
+================
+import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import axios from 'axios';
+
+// System prompt to optimize user input
+const systemPrompt = `
+You are an AI prompt optimizer. Your task is to take the user's input prompt and improve it for clarity, specificity, and effectiveness when used with AI coding tools like Cursor AI or Continue Dev. Return only the optimized prompt without additional commentary.
+Example:
+- Input: "Write some code"
+- Output: "Generate a Python function with clear variable names and error handling for a specific task"
+`;
+
+// Default config content with model
+const defaultConfig = {
+  apiUrl: "https://openrouter.ai/api/v1/chat/completions",
+  apiKey: "",
+  model: "openai/gpt-4o-mini"
+};
+
+export function activate(context: vscode.ExtensionContext) {
+  console.log("🚀 AI Prompt Optimizer extension activated!");
+  
+  const configDir = context.globalStorageUri.fsPath;
+  const configPath = path.join(configDir, 'config.json');
+
+  const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
+    console.log("📨 Received prompt:", request.prompt);
+    const userPrompt = request.prompt.trim();
+    
+    // Notify the user that the optimization process is starting
+    stream.markdown("Optimizing your prompt...\n\n");
+
+    // Ensure the config directory exists
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+      console.log("Created configuration directory:", configDir);
+    }
+
+    let apiUrl: string | undefined;
+    let apiKey: string | undefined;
+    let model: string | undefined;
+
+    // Check if the config file exists
+    if (!fs.existsSync(configPath)) {
+      console.log("Configuration file not found at:", configPath);
+      stream.markdown("Configuration file not found. Please run the 'AI Prompt Optimizer: Configure' command to set up your API details and model.\n");
+      return;
+    }
+
+    try {
+      // Read and parse the config file
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      console.log("Loaded configuration:", config);
+      apiUrl = config.apiUrl;
+      apiKey = config.apiKey;
+      model = config.model || "openai/gpt-4o-mini";
+    } catch (error: any) {
+      console.error("Error reading config.json:", error);
+      stream.markdown("Error reading config.json: " + error.message + "\nRun the 'AI Prompt Optimizer: Configure' command to fix it.\n");
+      return;
+    }
+
+    // Check if API URL and key are available
+    if (!apiUrl || !apiKey) {
+      console.log("Missing API URL or key in config.json");
+      stream.markdown("Missing API URL or key in config.json. Run the 'AI Prompt Optimizer: Configure' command to update it.\n");
+      return;
+    }
+
+    // Make the API request to optimize the prompt
+    try {
+      console.log("Making API request to:", apiUrl);
+      const response = await axios.post(
+        apiUrl,
+        {
+          model: model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ],
+          max_tokens: 150,
+          temperature: 0.7
+        },
+        {
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+
+      // Log the API response
+      console.log("API Response:", response.data);
+
+      const optimizedPrompt = response.data.choices[0].message.content.trim();
+
+      // Display the original and optimized prompt
+      stream.markdown(`### Your Original Prompt:\n"${userPrompt}"\n\n`);
+      stream.markdown(`### Optimized Prompt (using ${model}):\n"${optimizedPrompt}"\n\n`);
+
+      // Provide a button to copy the optimized prompt
+      stream.button({
+        command: 'ai-prompt-optimizer.copyPrompt',
+        title: 'Copy Optimized Prompt',
+        arguments: [optimizedPrompt]
+      });
+    } catch (error: any) {
+      console.error("🔥 API call failed:", {
+        url: apiUrl,
+        model: model,
+        headers: {
+          Authorization: `Bearer ${apiKey?.slice(0, 6)}...`,
+          "Content-Type": "application/json"
+        },
+        error: error.response?.data || error.message
+      });
+
+      // Handle API errors
+      const err = error.response?.data?.error?.message || JSON.stringify(error.response?.data || error.message);
+      stream.markdown(`❌ **API Error:** ${err}`);
+    }
+  };
+
+  // Register the chat participant
+  const participant = vscode.chat.createChatParticipant('aiPromptOptimizer', handler);
+  context.subscriptions.push(participant);
+
+  // Register the 'Copy Optimized Prompt' command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ai-prompt-optimizer.copyPrompt', (prompt: string) => {
+      vscode.env.clipboard.writeText(prompt);
+      vscode.window.showInformationMessage('Optimized prompt copied to clipboard!');
+    })
+  );
+
+  // Register the 'Configure' command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ai-prompt-optimizer.configure', async () => {
+      if (!fs.existsSync(configDir)) {
+        fs.mkdirSync(configDir, { recursive: true });
+        console.log("Created configuration directory:", configDir);
+      }
+
+      if (!fs.existsSync(configPath)) {
+        fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
+        console.log("Created default config file:", configPath);
+      }
+
+      const uri = vscode.Uri.file(configPath);
+      await vscode.window.showTextDocument(uri);
+      vscode.window.showInformationMessage('Edit your API URL, key, and model in config.json, then save the file.');
+    })
+  );
+}
+
+export function deactivate() {}
+
+================
+File: .gitignore
+================
+out
+dist
+node_modules
+.vscode-test/
+*.vsix
+
+================
+File: .vscode-test.mjs
+================
+import { defineConfig } from '@vscode/test-cli';
+
+export default defineConfig({
+	files: 'out/test/**/*.test.js',
+});
+
+================
+File: .vscodeignore
+================
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+.yarnrc
+vsc-extension-quickstart.md
+**/tsconfig.json
+**/eslint.config.mjs
+**/*.map
+**/*.ts
+**/.vscode-test.*
+
+================
+File: CHANGELOG.md
+================
+# Change Log
+
+All notable changes to the "ai-prompt-optimizer" extension will be documented in this file.
+
+Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+
+## [Unreleased]
+
+- Initial release
+
+================
+File: config.json
+================
+{
+  "apiUrl": "https://api.openai.com/v1/chat/completions",
+  "apiKey": ""
+}
+
+================
+File: eslint.config.mjs
+================
+import typescriptEslint from "@typescript-eslint/eslint-plugin";
+import tsParser from "@typescript-eslint/parser";
+
+export default [{
+    files: ["**/*.ts"],
+}, {
+    plugins: {
+        "@typescript-eslint": typescriptEslint,
+    },
+
+    languageOptions: {
+        parser: tsParser,
+        ecmaVersion: 2022,
+        sourceType: "module",
+    },
+
+    rules: {
+        "@typescript-eslint/naming-convention": ["warn", {
+            selector: "import",
+            format: ["camelCase", "PascalCase"],
+        }],
+
+        curly: "warn",
+        eqeqeq: "warn",
+        "no-throw-literal": "warn",
+        semi: "warn",
+    },
+}];
+
+================
+File: package.json
+================
+{
+  "name": "ai-prompt-optimizer",
+  "displayName": "AI Prompt Optimizer",
+  "description": "Optimize prompts for AI coding tools like Cursor AI and Continue Dev",
+  "version": "0.0.1",
+  "publisher": "mohamedhemdan",
+  "engines": {
+    "vscode": "^1.87.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onChatParticipant:aiPromptOptimizer"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ai-prompt-optimizer.copyPrompt",
+        "title": "Copy Optimized Prompt"
+      },
+      {
+        "command": "ai-prompt-optimizer.configure",
+        "title": "AI Prompt Optimizer: Configure"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "aiPromptOptimizer",
+        "name": "ai-prompt-optimizer",
+        "description": "Helps optimize prompts for AI coding tools like Cursor AI and Continue Dev",
+        "isSticky": true
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run esbuild",
+    "esbuild": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "watch": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --watch",
+    "compile": "tsc -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.87.0",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.23.0",
+    "typescript": "^5.8.2",
+    "esbuild": "^0.23.1",
+    "@types/axios": "^0.14.0"
+  },
+  "dependencies": {
+    "axios": "^1.7.7"
+  }
+}
+
+================
+File: README.md
+================
+# ai-prompt-optimizer README
+
+This is the README for your extension "ai-prompt-optimizer". After writing up a brief description, we recommend including the following sections.
+
+## Features
+
+Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+
+For example if there is an image subfolder under your extension project workspace:
+
+\!\[feature X\]\(images/feature-x.png\)
+
+> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+
+## Requirements
+
+If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+
+## Extension Settings
+
+Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+
+For example:
+
+This extension contributes the following settings:
+
+* `myExtension.enable`: Enable/disable this extension.
+* `myExtension.thing`: Set to `blah` to do something.
+
+## Known Issues
+
+Calling out known issues can help limit users opening duplicate issues against your extension.
+
+## Release Notes
+
+Users appreciate release notes as you update your extension.
+
+### 1.0.0
+
+Initial release of ...
+
+### 1.0.1
+
+Fixed issue #.
+
+### 1.1.0
+
+Added features X, Y, and Z.
+
+---
+
+## Following extension guidelines
+
+Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+
+* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+
+## Working with Markdown
+
+You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+
+* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
+* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
+* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+
+## For more information
+
+* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
+* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+
+**Enjoy!**
+
+================
+File: tsconfig.json
+================
+{
+	"compilerOptions": {
+	  "module": "commonjs",
+	  "target": "es2020",
+	  "outDir": "out",
+	  "rootDir": "src",
+	  "sourceMap": true,
+	  "strict": true
+	}
+}
+
+================
+File: vsc-extension-quickstart.md
+================
+# Welcome to your VS Code Extension
+
+## What's in the folder
+
+* This folder contains all of the files necessary for your extension.
+* `package.json` - this is the manifest file in which you declare your extension and command.
+  * The sample plugin registers a command and defines its title and command name. With this information VS Code can show the command in the command palette. It doesn’t yet need to load the plugin.
+* `src/extension.ts` - this is the main file where you will provide the implementation of your command.
+  * The file exports one function, `activate`, which is called the very first time your extension is activated (in this case by executing the command). Inside the `activate` function we call `registerCommand`.
+  * We pass the function containing the implementation of the command as the second parameter to `registerCommand`.
+
+## Get up and running straight away
+
+* Press `F5` to open a new window with your extension loaded.
+* Run your command from the command palette by pressing (`Ctrl+Shift+P` or `Cmd+Shift+P` on Mac) and typing `Hello World`.
+* Set breakpoints in your code inside `src/extension.ts` to debug your extension.
+* Find output from your extension in the debug console.
+
+## Make changes
+
+* You can relaunch the extension from the debug toolbar after changing code in `src/extension.ts`.
+* You can also reload (`Ctrl+R` or `Cmd+R` on Mac) the VS Code window with your extension to load your changes.
+
+## Explore the API
+
+* You can open the full set of our API when you open the file `node_modules/@types/vscode/index.d.ts`.
+
+## Run tests
+
+* Install the [Extension Test Runner](https://marketplace.visualstudio.com/items?itemName=ms-vscode.extension-test-runner)
+* Run the "watch" task via the **Tasks: Run Task** command. Make sure this is running, or tests might not be discovered.
+* Open the Testing view from the activity bar and click the Run Test" button, or use the hotkey `Ctrl/Cmd + ; A`
+* See the output of the test result in the Test Results view.
+* Make changes to `src/test/extension.test.ts` or create new test files inside the `test` folder.
+  * The provided test runner will only consider files matching the name pattern `**.test.ts`.
+  * You can create folders inside the `test` folder to structure your tests any way you want.
+
+## Go further
+
+* [Follow UX guidelines](https://code.visualstudio.com/api/ux-guidelines/overview) to create extensions that seamlessly integrate with VS Code's native interface and patterns.
+* Reduce the extension size and improve the startup time by [bundling your extension](https://code.visualstudio.com/api/working-with-extensions/bundling-extension).
+* [Publish your extension](https://code.visualstudio.com/api/working-with-extensions/publishing-extension) on the VS Code extension marketplace.
+* Automate builds by setting up [Continuous Integration](https://code.visualstudio.com/api/working-with-extensions/continuous-integration).
+* Integrate to the [report issue](https://code.visualstudio.com/api/get-started/wrapping-up#issue-reporting) flow to get issue and feature requests reported by users.
+
+
+
+================================================================
+End of Codebase
+================================================================

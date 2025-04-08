@@ -1,0 +1,78 @@
+/* Styles to match VS Code's look and feel */
+body {
+	background-color: var(--vscode-editor-background);
+	color: var(--vscode-editor-foreground);
+	font-family: var(--vscode-font-family);
+	font-weight: var(--vscode-font-weight);
+	font-size: var(--vscode-font-size);
+	padding: 10px;
+}
+
+a {
+	color: var(--vscode-textLink-foreground);
+	text-decoration: none;
+}
+
+a:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}
+
+button {
+	border: none;
+	padding: 8px 12px;
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	cursor: pointer;
+	border-radius: 2px;
+	font-family: var(--vscode-font-family);
+	font-weight: var(--vscode-font-weight);
+	font-size: var(--vscode-font-size);
+}
+
+button:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+button:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+input[type="text"],
+textarea {
+	display: block;
+	width: calc(100% - 20px); /* Account for padding */
+	padding: 8px;
+	margin-bottom: 10px;
+	border: 1px solid var(--vscode-input-border, var(--vscode-dropdown-border));
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-family: var(--vscode-font-family);
+	font-weight: var(--vscode-font-weight);
+	font-size: var(--vscode-font-size);
+	border-radius: 2px;
+}
+
+input[type="text"]::placeholder,
+textarea::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+input[type="text"]:focus,
+textarea:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	border-color: var(--vscode-focusBorder);
+}
+
+h2, h3 {
+    margin-top: 15px;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--vscode-editorWidget-border, var(--vscode-separator-foreground));
+    margin: 15px 0;
+}

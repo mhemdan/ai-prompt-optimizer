@@ -1,0 +1,32 @@
+body {
+	padding: 15px;
+}
+
+textarea#prompt-input {
+	width: calc(100% - 16px); /* Adjust for padding */
+	margin-bottom: 10px;
+	resize: vertical; /* Allow vertical resizing */
+}
+
+button#optimize-button {
+	display: block;
+	width: 100%;
+	margin-bottom: 15px;
+}
+
+#result-output {
+	background-color: var(--vscode-textBlockQuote-background, var(--vscode-editorWidget-background));
+	border: 1px solid var(--vscode-textBlockQuote-border, var(--vscode-editorWidget-border));
+	padding: 10px;
+	min-height: 50px;
+	border-radius: 3px;
+	margin-bottom: 10px;
+	font-family: var(--vscode-editor-font-family, var(--vscode-font-family)); /* Use editor font if available */
+}
+
+button#copy-button {
+    display: none; /* Hidden by default */
+    margin-top: 5px;
+    width: auto; /* Don't force full width */
+    float: right; /* Position to the right */
+}
