@@ -28,6 +28,14 @@
       {
         "command": "ai-prompt-optimizer.configure",
         "title": "AI Prompt Optimizer: Configure"
+      },
+      {
+        "command": "ai-prompt-optimizer.openConfig",
+        "title": "AI Prompt Optimizer: Open Configuration"
+      },
+      {
+        "command": "ai-prompt-optimizer.resetConfig",
+        "title": "AI Prompt Optimizer: Reset Configuration"
       }
     ],
     "viewsContainers": {
@@ -46,6 +54,15 @@
           "name": "Optimize Prompt",
           "type": "webview",
           "contextualTitle": "AI Prompt Optimizer"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "ai-prompt-optimizer.openConfig",
+          "when": "view == aiPromptOptimizerView",
+          "group": "navigation"
         }
       ]
     }

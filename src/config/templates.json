@@ -1,0 +1,25 @@
+
+{
+    "templates": {
+        "api-endpoint": {
+            "id": "api-endpoint",
+            "name": "API Endpoint",
+            "description": "Create an API endpoint with specific functionality",
+            "template": "Create an API endpoint that:\n- Method: {{method}}\n- Path: {{path}}\n- Functionality: {{functionality}}\n- Authentication: {{auth}}\n- Response format: {{response}}\n\nConsider:\n- Input validation\n- Error handling\n- Rate limiting\n- Security best practices",
+            "variables": ["method", "path", "functionality", "auth", "response"],
+            "context": {
+                "pattern": "api"
+            }
+        },
+        "database-model": {
+            "id": "database-model",
+            "name": "Database Model",
+            "description": "Create a database model with relationships",
+            "template": "Create a database model for:\n- Entity: {{entity}}\n- Properties: {{properties}}\n- Relationships: {{relationships}}\n- Constraints: {{constraints}}\n\nInclude:\n- Indexes\n- Validation rules\n- Migration approach",
+            "variables": ["entity", "properties", "relationships", "constraints"],
+            "context": {
+                "pattern": "database"
+            }
+        }
+    }
+}

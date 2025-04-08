@@ -46,11 +46,26 @@ Additional Info:
 Directory Structure
 ================================================================
 media/
+  codicon.css
   main.css
   main.js
   reset.css
   vscode.css
 src/
+  cache/
+    PromptCache.ts
+  config/
+    config.json
+    ConfigManager.ts
+    defaultConfig.ts
+    SettingsWebview.ts
+    templates.json
+  context/
+    ContextAnalyzer.ts
+  prompts/
+    systemPrompt.ts
+  templates/
+    TemplateEngine.ts
   test/
     extension.test.ts
   extension.ts
@@ -58,7 +73,6 @@ src/
 .vscode-test.mjs
 .vscodeignore
 CHANGELOG.md
-config.json
 eslint.config.mjs
 package.json
 README.md
@@ -70,262 +84,300 @@ Files
 ================================================================
 
 ================
+File: media/codicon.css
+================
+@font-face {
+    font-family: "codicon";
+    src: url("./codicon.ttf") format("truetype");
+}
+
+================
 File: media/main.css
 ================
+/* Base Layout */
 body {
-	padding: 10px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 20px); /* Full height minus padding */
+    height: calc(100vh - 20px);
+}
+
+/* Header Styles */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
 }
 
 h2 {
     margin-bottom: 10px;
-    flex-shrink: 0; /* Prevent shrinking */
+    flex-shrink: 0;
 }
 
+/* Settings Button */
+.icon-button {
+    background: none;
+    border: none;
+    padding: 5px;
+    cursor: pointer;
+    color: var(--vscode-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-button:hover {
+    background-color: var(--vscode-toolbar-hoverBackground);
+    border-radius: 3px;
+}
+
+.codicon {
+    font-family: codicon;
+    font-size: 16px;
+    line-height: 16px;
+}
+
+.codicon-gear:before {
+    content: "\ea6c";
+}
+
+/* Conversation Area */
 .conversation-area {
-    flex-grow: 1; /* Take available space */
+    flex-grow: 1;
     border: 1px solid var(--vscode-editorWidget-border, var(--vscode-separator-foreground));
     padding: 8px;
     margin-bottom: 10px;
-    overflow-y: auto; /* Enable scrolling */
+    overflow-y: auto;
     background-color: var(--vscode-textBlockQuote-background, var(--vscode-editorWidget-background));
     border-radius: 3px;
 }
 
+/* Message Styles */
 .message {
     margin-bottom: 8px;
     padding: 6px 10px;
     border-radius: 5px;
-    white-space: pre-wrap; /* Preserve whitespace and wrap */
+    white-space: pre-wrap;
     word-wrap: break-word;
-    max-width: 80%; /* Prevent messages from taking full width */
-    clear: both; /* Ensure messages don't overlap floats */
+    max-width: 80%;
+    clear: both;
 }
 
 .user-message {
-    background-color: var(--vscode-list-activeSelectionBackground, #094771); /* Use selection background or a fallback */
+    background-color: var(--vscode-list-activeSelectionBackground, #094771);
     color: var(--vscode-list-activeSelectionForeground, white);
-    /* text-align: right; Align user messages to the right */
-    float: right; /* Float user messages to the right */
-    /* margin-left: 20%; Indent from left */
+    float: right;
 }
 
 .assistant-message {
-    background-color: var(--vscode-list-inactiveSelectionBackground, var(--vscode-editorWidget-background, #37373d)); /* Use inactive selection or editor widget background */
+    background-color: var(--vscode-list-inactiveSelectionBackground, var(--vscode-editorWidget-background, #37373d));
     color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
-    /* text-align: left; */
-    float: left; /* Float assistant messages to the left */
-   /* margin-right: 20%; Indent from right */
+    float: left;
 }
 
-/* Style for thinking indicator */
-.thinking-indicator {
-    font-style: italic;
-    color: var(--vscode-descriptionForeground);
-}
-
-
-.input-area {
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0; /* Prevent shrinking */
-    margin-top: 5px; /* Add some space above input */
-}
-
-textarea#prompt-input {
-	width: calc(100% - 16px); /* Adjust for padding */
-	margin-bottom: 5px; /* Smaller margin */
-	resize: vertical;
-    min-height: 40px; /* Minimum height */
-    max-height: 150px; /* Maximum height before scrolling */
-}
-
-.button-group {
-    display: flex;
-    gap: 5px; /* Space between buttons */
-}
-
-.button-group button {
-    flex-grow: 1; /* Make buttons share space */
-}
-
-button#copy-button {
-    display: none; /* Hidden by default */
-    margin-top: 10px;
-    width: 100%; /* Full width */
-    flex-shrink: 0;
-}
-
-/* Style for error messages (can be applied to assistant messages) */
 .assistant-message.error {
     color: var(--vscode-errorForeground);
     border: 1px solid var(--vscode-inputValidation-errorBorder);
 }
 
+/* Thinking Indicator */
+.thinking-indicator {
+    font-style: italic;
+    color: var(--vscode-descriptionForeground);
+    float: left;
+    clear: both;
+}
+
+/* Optimized Prompt Styles */
+.final-prompt, .optimized-prompt {
+    border-left: 3px solid var(--vscode-textLink-foreground);
+    margin-top: 10px;
+    padding-left: 10px;
+}
+
+/* Copy Button Styles */
+.copy-button-container {
+    margin-top: 10px;
+    text-align: right;
+    clear: both;
+}
+
+.copy-button {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    padding: 6px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    display: inline-block; /* Changed from 'none' to make it visible */
+}
+
+.copy-button:hover {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+/* Input Area */
+.input-area {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    margin-top: 5px;
+}
+
+textarea#prompt-input {
+    width: calc(100% - 16px);
+    margin-bottom: 5px;
+    resize: vertical;
+    min-height: 40px;
+    max-height: 150px;
+}
+
+/* Button Group */
+.button-group {
+    display: flex;
+    gap: 5px;
+}
+
+.button-group button {
+    flex-grow: 1;
+}
+
 ================
 File: media/main.js
 ================
-// This script will be run within the webview itself
+// media/main.js
+
 (function () {
-    // @ts-ignore
-    const vscode = acquireVsCodeApi(); // API to communicate with the extension host
+    const vscode = acquireVsCodeApi();
+    const promptInput = document.getElementById('prompt-input');
+    const sendButton = document.getElementById('send-button');
+    const clearButton = document.getElementById('clear-button');
+    const conversationArea = document.getElementById('conversation-area');
+    let lastOptimizedPrompt = '';
 
-    const promptInput = document.getElementById('prompt-input'); // Text area for input
-    const sendButton = document.getElementById('send-button'); // Send button
-    const clearButton = document.getElementById('clear-button'); // Clear button
-    const conversationArea = document.getElementById('conversation-area'); // Div to display messages
-    const copyButton = document.getElementById('copy-button'); // Copy button (initially hidden)
+    // --- Helper Functions ---
+    function addThinkingIndicator() {
+        removeThinkingIndicator(); // Remove any existing indicator first
+        const thinkingDiv = document.createElement('div');
+        thinkingDiv.classList.add('message', 'assistant-message', 'thinking-indicator');
+        thinkingDiv.textContent = 'Thinking...';
+        conversationArea.appendChild(thinkingDiv);
+        conversationArea.scrollTop = conversationArea.scrollHeight;
+    }
 
-    let lastOptimizedPrompt = ''; // Store the final prompt for copying
-
-    // --- Helper Function to Add Messages to UI ---
-    function addMessageToUI(role, text, isThinking = false) {
-        if (!conversationArea) return;
-
-        // Remove previous thinking indicator if it exists
-        const existingThinking = conversationArea?.querySelector('.thinking-indicator');
-        if (existingThinking) {
-            existingThinking.remove();
+    function removeThinkingIndicator() {
+        const thinkingIndicator = document.querySelector('.thinking-indicator');
+        if (thinkingIndicator) {
+            thinkingIndicator.remove();
         }
+    }
 
+    function addMessageToUI(role, text, isOptimizedPrompt = false) {
+        removeThinkingIndicator();
 
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', role === 'user' ? 'user-message' : 'assistant-message');
-        if (isThinking) {
-            messageDiv.classList.add('thinking-indicator'); // Add class to identify thinking message
-        }
 
-        // Basic text formatting (can be enhanced)
         const contentDiv = document.createElement('div');
         contentDiv.textContent = text;
         messageDiv.appendChild(contentDiv);
 
-        conversationArea.appendChild(messageDiv);
-        // Scroll to the bottom
-        conversationArea.scrollTop = conversationArea.scrollHeight;
-
-        // Check if this is the final optimized prompt
-        const finalPromptPrefix = "Optimized Prompt:";
-        if (role === 'assistant' && text.startsWith(finalPromptPrefix)) {
-            lastOptimizedPrompt = text.substring(finalPromptPrefix.length).trim();
-            copyButton.style.display = 'inline-block'; // Show copy button
-        } else {
-             // Hide copy button if it's not the final prompt
-             if (role === 'assistant') {
-                 copyButton.style.display = 'none';
-                 lastOptimizedPrompt = '';
-             }
+        // Only show copy button for optimized prompts
+        if (isOptimizedPrompt && text.includes('Optimized Prompt:')) {
+            const optimizedPrompt = text.split('Optimized Prompt:')[1].trim();
+            lastOptimizedPrompt = optimizedPrompt;
+            
+            const copyButtonDiv = document.createElement('div');
+            copyButtonDiv.classList.add('copy-button-container');
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.textContent = 'Copy Prompt';
+            copyBtn.classList.add('copy-button');
+            copyBtn.onclick = () => {
+                vscode.postMessage({
+                    type: 'copyToClipboard',
+                    value: optimizedPrompt
+                });
+            };
+            
+            copyButtonDiv.appendChild(copyBtn);
+            messageDiv.appendChild(copyButtonDiv);
         }
+
+        conversationArea.appendChild(messageDiv);
+        conversationArea.scrollTop = conversationArea.scrollHeight;
     }
 
     // --- Event Listeners ---
-
-    // Handle Send button click
     if (sendButton && promptInput) {
         sendButton.addEventListener('click', () => {
             const promptText = promptInput.value.trim();
             if (promptText) {
-                // Add user message to UI immediately
                 addMessageToUI('user', promptText);
-
-                // Send message to extension host
                 vscode.postMessage({
-                    type: 'optimizePrompt', // This type is handled in extension.ts
+                    type: 'optimizePrompt',
                     value: promptText
                 });
-
-                // Clear the input field
                 promptInput.value = '';
-                copyButton.style.display = 'none'; // Hide copy button while waiting for response
-                lastOptimizedPrompt = '';
             }
         });
-    } else {
-        console.error("Could not find send button or prompt input elements.");
     }
 
-     // Allow sending with Enter key in textarea (Shift+Enter for newline)
-     if (promptInput) {
+    if (promptInput) {
         promptInput.addEventListener('keydown', (event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault(); // Prevent default newline insertion
-                sendButton.click(); // Trigger send button click
+                event.preventDefault();
+                sendButton.click();
             }
         });
     }
 
-    // Handle Clear button click
     if (clearButton) {
         clearButton.addEventListener('click', () => {
             vscode.postMessage({ type: 'clearChat' });
         });
-    } else {
-        console.error("Could not find clear button element.");
     }
-
-    // Handle Copy button click
-    if (copyButton) {
-        copyButton.addEventListener('click', () => {
-            if (lastOptimizedPrompt) {
-                vscode.postMessage({
-                    type: 'copyToClipboard',
-                    value: lastOptimizedPrompt // Send only the optimized part
-                });
-            }
-        });
-    } else {
-         console.error("Could not find copy button element.");
-    }
-
 
     // --- Handle Messages from Extension Host ---
     window.addEventListener('message', event => {
         const message = event.data;
+
         switch (message.type) {
-            case 'addMessage': // Add AI message from host
+            case 'addMessage':
                 {
-                    addMessageToUI(message.role, message.value);
-                    // Re-enable input/button if they were disabled during loading
                     promptInput.disabled = false;
                     sendButton.disabled = false;
+                    addMessageToUI(message.role, message.value, message.isOptimizedPrompt);
                     break;
                 }
-            case 'showLoading': // Show loading state
-                 {
-                    // Optional: Add a visual loading indicator
-                    // Disable input/button while loading
+            case 'showLoading':
+                {
                     promptInput.disabled = true;
                     sendButton.disabled = true;
-                    addMessageToUI('assistant', 'Thinking...', true); // Pass thinking flag
-                    copyButton.style.display = 'none';
-                    lastOptimizedPrompt = '';
+                    addThinkingIndicator();
                     break;
-                 }
-            case 'clearChat': // Clear the UI display
+                }
+            case 'clearChat':
                 {
-                    conversationArea.innerHTML = ''; // Clear messages
-                    promptInput.value = ''; // Clear input
-                    promptInput.disabled = false; // Re-enable
-                    sendButton.disabled = false; // Re-enable
-                    copyButton.style.display = 'none'; // Hide copy button
+                    conversationArea.innerHTML = '';
+                    promptInput.value = '';
+                    promptInput.disabled = false;
+                    sendButton.disabled = false;
                     lastOptimizedPrompt = '';
                     break;
                 }
-            case 'showError': // Display error messages from the backend
-                 {
+            case 'showError':
+                {
+                    removeThinkingIndicator();
                     addMessageToUI('assistant', `Error: ${message.value}`);
-                    // Re-enable input/button after error
                     promptInput.disabled = false;
                     sendButton.disabled = false;
-                    copyButton.style.display = 'none';
-                    lastOptimizedPrompt = '';
                     break;
-                 }
+                }
         }
     });
-
 }());
 
 ================
@@ -463,6 +515,1011 @@ hr {
 }
 
 ================
+File: src/cache/PromptCache.ts
+================
+// src/cache/PromptCache.ts
+
+interface CacheEntry {
+    prompt: string;
+    response: string;
+    timestamp: number;
+    context: string;
+}
+
+export class PromptCache {
+    private cache: Map<string, CacheEntry>;
+    private readonly maxEntries: number;
+    private readonly ttl: number; // Time to live in milliseconds
+
+    constructor(maxEntries = 100, ttlMinutes = 60) {
+        this.cache = new Map();
+        this.maxEntries = maxEntries;
+        this.ttl = ttlMinutes * 60 * 1000;
+    }
+
+    public get(prompt: string, context: string): string | undefined {
+        const key = this.generateKey(prompt, context);
+        const entry = this.cache.get(key);
+        
+        if (!entry) {
+            return undefined;
+        }
+
+        if (this.isExpired(entry)) {
+            this.cache.delete(key);
+            return undefined;
+        }
+
+        return entry.response;
+    }
+
+    public set(prompt: string, response: string, context: string): void {
+        const key = this.generateKey(prompt, context);
+        
+        if (this.cache.size >= this.maxEntries) {
+            this.evictOldest();
+        }
+
+        this.cache.set(key, {
+            prompt,
+            response,
+            timestamp: Date.now(),
+            context
+        });
+    }
+
+    private generateKey(prompt: string, context: string): string {
+        return `${prompt}:${context}`;
+    }
+
+    private isExpired(entry: CacheEntry): boolean {
+        return Date.now() - entry.timestamp > this.ttl;
+    }
+
+    private evictOldest(): void {
+        let oldestKey: string | undefined;
+        let oldestTimestamp = Infinity;
+
+        for (const [key, entry] of this.cache.entries()) {
+            if (entry.timestamp < oldestTimestamp) {
+                oldestTimestamp = entry.timestamp;
+                oldestKey = key;
+            }
+        }
+
+        if (oldestKey) {
+            this.cache.delete(oldestKey);
+        }
+    }
+}
+
+================
+File: src/config/config.json
+================
+{
+  "api": {
+    "defaultProvider": "openai",
+    "maxTokens": 2000,
+    "temperature": 0.7,
+    "openai": {
+      "endpoint": "https://api.openai.com/v1/chat/completions",
+      "apiKey": "",
+      "model": "gpt-4"
+    },
+    "openrouter": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "apiKey": "",
+      "model": "openai/gpt-4"
+    },
+    "anthropic": {
+      "endpoint": "https://api.anthropic.com/v1/complete",
+      "apiKey": "",
+      "model": "claude-2"
+    },
+    "custom": {
+      "endpoint": "",
+      "apiKey": "",
+      "model": ""
+    }
+  },
+    
+    "cache": {
+      "enabled": true,
+      "maxEntries": 100,
+      "ttlMinutes": 60,
+      "excludePatterns": [
+        "sensitive*",
+        "personal*"
+      ]
+    },
+  
+    "templates": {
+      "enabled": true,
+      "customTemplatesPath": "./templates",
+      "defaultTemplate": "general",
+      "autoDetect": true
+    },
+  
+    "context": {
+      "analysis": {
+        "enabled": true,
+        "scanDepth": 2,
+        "excludeFolders": [
+          "node_modules",
+          "dist",
+          ".git"
+        ],
+        "includePackageJson": true,
+        "includeGitInfo": true
+      },
+      "workspace": {
+        "maxFileScanSize": 1000000,
+        "fileExtensions": [
+          ".ts",
+          ".js",
+          ".tsx",
+          ".jsx",
+          ".py",
+          ".java",
+          ".cpp"
+        ]
+      }
+    },
+  
+    "ui": {
+      "theme": "auto",
+      "maxConversationHistory": 50,
+      "showLineNumbers": true,
+      "autoComplete": true,
+      "suggestions": {
+        "enabled": true,
+        "maxSuggestions": 5,
+        "triggerCharacters": ["@", "/", "#"]
+      }
+    },
+  
+    "features": {
+      "autoOptimize": {
+        "enabled": true,
+        "triggerLength": 50,
+        "delay": 500
+      },
+      "export": {
+        "formats": ["json", "markdown", "txt"],
+        "includeMeta": true
+      },
+      "collaboration": {
+        "enabled": false,
+        "shareLinks": false
+      }
+    },
+  
+    "security": {
+      "sanitizePrompts": true,
+      "maxPromptLength": 5000,
+      "sensitivePatterns": [
+        "password",
+        "api[_-]?key",
+        "secret",
+        "token"
+      ]
+    },
+  
+    "telemetry": {
+      "enabled": false,
+      "anonymizeData": true,
+      "collectUsageStats": false
+    },
+  
+    "experimental": {
+      "streamingResponse": false,
+      "multimodalPrompts": false,
+      "advancedContextAnalysis": false
+    }
+  }
+
+================
+File: src/config/ConfigManager.ts
+================
+// src/config/ConfigManager.ts
+
+import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import { defaultConfig } from './defaultConfig';
+
+export interface Config {
+    api: {
+        defaultProvider: string;
+        maxTokens: number;
+        temperature: number;
+        openai: ProviderConfig;
+        openrouter: ProviderConfig;
+        anthropic: ProviderConfig;
+        custom: ProviderConfig;
+    };
+    cache: {
+        enabled: boolean;
+        maxEntries: number;
+        ttlMinutes: number;
+        excludePatterns: string[];
+    };
+    templates: {
+        enabled: boolean;
+        customTemplatesPath: string;
+        defaultTemplate: string;
+        autoDetect: boolean;
+    };
+    context: {
+        analysis: {
+            enabled: boolean;
+            scanDepth: number;
+            excludeFolders: string[];
+            includePackageJson: boolean;
+            includeGitInfo: boolean;
+        };
+        workspace: {
+            maxFileScanSize: number;
+            fileExtensions: string[];
+        };
+    };
+    ui: {
+        theme: 'light' | 'dark' | 'auto';
+        maxConversationHistory: number;
+        showLineNumbers: boolean;
+        autoComplete: boolean;
+        suggestions: {
+            enabled: boolean;
+            maxSuggestions: number;
+            triggerCharacters: string[];
+        };
+    };
+}
+
+export class ConfigManager {
+    private static instance: ConfigManager;
+    private config: Config;
+    private readonly configPath: string;
+
+    private constructor(context: vscode.ExtensionContext) {
+        this.configPath = path.join(context.globalStorageUri.fsPath, 'config.json');
+        this.config = this.loadConfig();
+    }
+
+    public static getInstance(context: vscode.ExtensionContext): ConfigManager {
+        if (!ConfigManager.instance) {
+            ConfigManager.instance = new ConfigManager(context);
+        }
+        return ConfigManager.instance;
+    }
+
+    private loadConfig(): Config {
+        try {
+            if (fs.existsSync(this.configPath)) {
+                const userConfig = JSON.parse(fs.readFileSync(this.configPath, 'utf-8'));
+                return this.mergeConfigs(defaultConfig, userConfig);
+            }
+            // If no config file exists, create one with default settings
+            this.saveConfig(defaultConfig);
+            return defaultConfig;
+        } catch (error) {
+            console.error('Error loading config:', error);
+            return defaultConfig;
+        }
+    }
+
+    private mergeConfigs(defaultConfig: Config, userConfig: Partial<Config>): Config {
+        const merged = { ...defaultConfig };
+
+        // Merge API configuration
+        if (userConfig.api) {
+            merged.api = {
+                ...defaultConfig.api,
+                ...userConfig.api,
+                openai: { ...defaultConfig.api.openai, ...userConfig.api?.openai },
+                openrouter: { ...defaultConfig.api.openrouter, ...userConfig.api?.openrouter },
+                anthropic: { ...defaultConfig.api.anthropic, ...userConfig.api?.anthropic },
+                custom: { ...defaultConfig.api.custom, ...userConfig.api?.custom }
+            };
+        }
+
+        // Merge cache configuration
+        if (userConfig.cache) {
+            merged.cache = {
+                ...defaultConfig.cache,
+                ...userConfig.cache
+            };
+        }
+
+        // Merge templates configuration
+        if (userConfig.templates) {
+            merged.templates = {
+                ...defaultConfig.templates,
+                ...userConfig.templates
+            };
+        }
+
+        // Merge context configuration
+        if (userConfig.context) {
+            merged.context = {
+                analysis: {
+                    ...defaultConfig.context.analysis,
+                    ...userConfig.context?.analysis
+                },
+                workspace: {
+                    ...defaultConfig.context.workspace,
+                    ...userConfig.context?.workspace
+                }
+            };
+        }
+
+        // Merge UI configuration
+        if (userConfig.ui) {
+            merged.ui = {
+                ...defaultConfig.ui,
+                ...userConfig.ui,
+                suggestions: {
+                    ...defaultConfig.ui.suggestions,
+                    ...userConfig.ui?.suggestions
+                }
+            };
+        }
+
+        return merged;
+    }
+
+    public async updateConfig(newConfig: Partial<Config>): Promise<void> {
+        this.config = this.mergeConfigs(this.config, newConfig);
+        await this.saveConfig(this.config);
+    }
+
+    private async saveConfig(config: Config): Promise<void> {
+        try {
+            const configDir = path.dirname(this.configPath);
+            if (!fs.existsSync(configDir)) {
+                fs.mkdirSync(configDir, { recursive: true });
+            }
+            fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2));
+        } catch (error) {
+            console.error('Error saving config:', error);
+            throw error;
+        }
+    }
+
+    public getConfig(): Config {
+        return this.config;
+    }
+
+    public get<K extends keyof Config>(key: K): Config[K] {
+        return this.config[key];
+    }
+
+    public async resetToDefaults(): Promise<void> {
+        this.config = defaultConfig;
+        await this.saveConfig(this.config);
+    }
+
+    public validateConfiguration(): string[] {
+        const errors: string[] = [];
+        const provider = this.config.api.defaultProvider;
+        const providerConfig = this.config.api[provider as keyof typeof this.config.api];
+
+        if (!providerConfig) {
+            errors.push(`Selected provider ${provider} is not properly configured`);
+        } else {
+            if (!providerConfig.endpoint) {
+                errors.push(`API endpoint not configured for ${provider}`);
+            }
+            if (!providerConfig.apiKey) {
+                errors.push(`API key not configured for ${provider}`);
+            }
+            if (!providerConfig.model) {
+                errors.push(`Model not selected for ${provider}`);
+            }
+        }
+
+        return errors;
+    }
+
+    public getApiEndpoint(): string {
+        const provider = this.config.api.defaultProvider;
+        const providerConfig = this.config.api[provider as keyof typeof this.config.api];
+        return providerConfig?.endpoint || '';
+    }
+}
+
+================
+File: src/config/defaultConfig.ts
+================
+// src/config/defaultConfig.ts
+
+export const defaultConfig = {
+    api: {
+        defaultProvider: 'openai',
+        maxTokens: 2000,
+        temperature: 0.7,
+        openai: {
+            endpoint: 'https://api.openai.com/v1/chat/completions',
+            apiKey: '',
+            model: 'gpt-4'
+        },
+        openrouter: {
+            endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+            apiKey: '',
+            model: 'openai/gpt-4'
+        },
+        anthropic: {
+            endpoint: 'https://api.anthropic.com/v1/complete',
+            apiKey: '',
+            model: 'claude-2'
+        },
+        custom: {
+            endpoint: '',
+            apiKey: '',
+            model: ''
+        }
+    },
+    cache: {
+        enabled: true,
+        maxEntries: 100,
+        ttlMinutes: 60,
+        excludePatterns: []
+    },
+    templates: {
+        enabled: true,
+        customTemplatesPath: './templates',
+        defaultTemplate: 'general',
+        autoDetect: true
+    },
+    context: {
+        analysis: {
+            enabled: true,
+            scanDepth: 2,
+            excludeFolders: ['node_modules', 'dist', '.git'],
+            includePackageJson: true,
+            includeGitInfo: true
+        },
+        workspace: {
+            maxFileScanSize: 1000000,
+            fileExtensions: ['.ts', '.js', '.tsx', '.jsx', '.py', '.java', '.cpp']
+        }
+    },
+    ui: {
+        theme: 'auto',
+        maxConversationHistory: 50,
+        showLineNumbers: true,
+        autoComplete: true,
+        suggestions: {
+            enabled: true,
+            maxSuggestions: 5,
+            triggerCharacters: ['@', '/', '#']
+        }
+    }
+};
+
+================
+File: src/config/SettingsWebview.ts
+================
+// src/config/SettingsWebview.ts
+
+import * as vscode from 'vscode';
+import { ConfigManager } from './ConfigManager';
+
+export class SettingsWebview {
+    public static readonly viewType = 'aiPromptOptimizerSettings';
+    private readonly _panel: vscode.WebviewPanel;
+    private readonly _configManager: ConfigManager;
+
+    private constructor(panel: vscode.WebviewPanel, configManager: ConfigManager) {
+        this._panel = panel;
+        this._configManager = configManager;
+        this._update();
+        this._setWebviewMessageListener();
+    }
+
+    public static render(extensionUri: vscode.Uri, configManager: ConfigManager) {
+        const panel = vscode.window.createWebviewPanel(
+            SettingsWebview.viewType,
+            'AI Prompt Optimizer Settings',
+            vscode.ViewColumn.One,
+            {
+                enableScripts: true,
+                localResourceRoots: [extensionUri]
+            }
+        );
+
+        return new SettingsWebview(panel, configManager);
+    }
+
+    private _update() {
+        const config = this._configManager.getConfig();
+        this._panel.webview.html = this._getHtmlForWebview(config);
+    }
+
+    private _setWebviewMessageListener() {
+        this._panel.webview.onDidReceiveMessage(async (message) => {
+            switch (message.type) {
+                case 'saveConfig':
+                    try {
+                        console.log('Saving configuration:', {
+                            provider: message.value.api.defaultProvider,
+                            hasApiKey: !!message.value.api[message.value.api.defaultProvider]?.apiKey,
+                            endpoint: message.value.api[message.value.api.defaultProvider]?.endpoint
+                        });
+    
+                        await this._configManager.updateConfig(message.value);
+                        
+                        // Verify the configuration was saved
+                        const newConfig = this._configManager.getConfig();
+                        console.log('Configuration saved:', {
+                            provider: newConfig.api.defaultProvider,
+                            hasApiKey: !!newConfig.api[newConfig.api.defaultProvider]?.apiKey,
+                            endpoint: newConfig.api[newConfig.api.defaultProvider]?.endpoint
+                        });
+    
+                        vscode.window.showInformationMessage('Configuration saved successfully!');
+                    } catch (error) {
+                        console.error('Failed to save configuration:', error);
+                        vscode.window.showErrorMessage(`Failed to save configuration: ${error.message}`);
+                    }
+                    break;
+            }
+        });
+    }
+
+    private _getHtmlForWebview(config: any): string {
+        return `<!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { 
+                    padding: 20px; 
+                    color: var(--vscode-foreground);
+                    font-family: var(--vscode-font-family);
+                }
+                .form-group { 
+                    margin-bottom: 15px; 
+                }
+                label { 
+                    display: block; 
+                    margin-bottom: 5px; 
+                }
+                input, select, textarea { 
+                    width: 100%; 
+                    padding: 5px;
+                    background-color: var(--vscode-input-background);
+                    color: var(--vscode-input-foreground);
+                    border: 1px solid var(--vscode-input-border);
+                }
+                .section { 
+                    margin-bottom: 20px; 
+                    border-bottom: 1px solid var(--vscode-panel-border); 
+                    padding-bottom: 20px; 
+                }
+                button {
+                    background-color: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
+                    border: none;
+                    padding: 8px 16px;
+                    cursor: pointer;
+                }
+                button:hover {
+                    background-color: var(--vscode-button-hoverBackground);
+                }
+                .provider-config {
+                    margin-left: 20px;
+                    padding: 10px;
+                    border-left: 2px solid var(--vscode-panel-border);
+                }
+                .hidden {
+                    display: none;
+                }
+                .checkbox-group {
+                    margin: 10px 0;
+                }
+                .checkbox-label {
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                }
+                .checkbox-label input[type="checkbox"] {
+                    width: auto;
+                }
+            </style>
+        </head>
+        <body>
+            <h2>AI Prompt Optimizer Settings</h2>
+            <form id="settingsForm">
+                <div class="section">
+                    <h3>API Configuration</h3>
+                    <div class="form-group">
+                        <label>Provider:</label>
+                        <select id="provider" name="provider">
+                            <option value="openai" ${config.api.defaultProvider === 'openai' ? 'selected' : ''}>OpenAI</option>
+                            <option value="openrouter" ${config.api.defaultProvider === 'openrouter' ? 'selected' : ''}>OpenRouter</option>
+                            <option value="anthropic" ${config.api.defaultProvider === 'anthropic' ? 'selected' : ''}>Anthropic</option>
+                            <option value="custom" ${config.api.defaultProvider === 'custom' ? 'selected' : ''}>Custom</option>
+                        </select>
+                    </div>
+
+                    <!-- OpenAI Configuration -->
+                    <div id="openai-config" class="provider-config ${config.api.defaultProvider === 'openai' ? '' : 'hidden'}">
+                        <div class="form-group">
+                            <label>OpenAI API Key:</label>
+                            <input type="password" id="openaiApiKey" value="${config.api.openai?.apiKey || ''}" />
+                        </div>
+                        <div class="form-group">
+                            <label>Model:</label>
+                            <select id="openaiModel">
+                                <option value="gpt-4" ${config.api.openai?.model === 'gpt-4' ? 'selected' : ''}>GPT-4</option>
+                                <option value="gpt-4-turbo" ${config.api.openai?.model === 'gpt-4-turbo' ? 'selected' : ''}>GPT-4 Turbo</option>
+                                <option value="gpt-3.5-turbo" ${config.api.openai?.model === 'gpt-3.5-turbo' ? 'selected' : ''}>GPT-3.5 Turbo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- OpenRouter Configuration -->
+                    <div id="openrouter-config" class="provider-config ${config.api.defaultProvider === 'openrouter' ? '' : 'hidden'}">
+                        <div class="form-group">
+                            <label>OpenRouter API Key:</label>
+                            <input type="password" id="openrouterApiKey" value="${config.api.openrouter?.apiKey || ''}" />
+                        </div>
+                        <div class="form-group">
+                            <label>Model:</label>
+                            <select id="openrouterModel">
+                                <option value="openai/gpt-4" ${config.api.openrouter?.model === 'openai/gpt-4' ? 'selected' : ''}>GPT-4</option>
+                                <option value="anthropic/claude-2" ${config.api.openrouter?.model === 'anthropic/claude-2' ? 'selected' : ''}>Claude 2</option>
+                                <option value="google/palm-2" ${config.api.openrouter?.model === 'google/palm-2' ? 'selected' : ''}>PaLM 2</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Anthropic Configuration -->
+                    <div id="anthropic-config" class="provider-config ${config.api.defaultProvider === 'anthropic' ? '' : 'hidden'}">
+                        <div class="form-group">
+                            <label>Anthropic API Key:</label>
+                            <input type="password" id="anthropicApiKey" value="${config.api.anthropic?.apiKey || ''}" />
+                        </div>
+                        <div class="form-group">
+                            <label>Model:</label>
+                            <select id="anthropicModel">
+                                <option value="claude-2" ${config.api.anthropic?.model === 'claude-2' ? 'selected' : ''}>Claude 2</option>
+                                <option value="claude-instant" ${config.api.anthropic?.model === 'claude-instant' ? 'selected' : ''}>Claude Instant</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Custom Provider Configuration -->
+                    <div id="custom-config" class="provider-config ${config.api.defaultProvider === 'custom' ? '' : 'hidden'}">
+                        <div class="form-group">
+                            <label>API Endpoint URL:</label>
+                            <input type="text" id="customApiUrl" value="${config.api.custom?.endpoint || ''}" placeholder="https://api.example.com/v1/chat/completions" />
+                        </div>
+                        <div class="form-group">
+                            <label>API Key:</label>
+                            <input type="password" id="customApiKey" value="${config.api.custom?.apiKey || ''}" />
+                        </div>
+                        <div class="form-group">
+                            <label>Model:</label>
+                            <input type="text" id="customModel" value="${config.api.custom?.model || ''}" placeholder="model-name" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Advanced Settings</h3>
+                    <div class="form-group">
+                        <label>Max Tokens:</label>
+                        <input type="number" id="maxTokens" value="${config.api.maxTokens || 2000}" min="1" max="8000" />
+                    </div>
+                    <div class="form-group">
+                        <label>Temperature:</label>
+                        <input type="range" id="temperature" min="0" max="2" step="0.1" value="${config.api.temperature || 0.7}" />
+                        <span id="temperatureValue">${config.api.temperature || 0.7}</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Cache Settings</h3>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="cacheEnabled" ${config.cache.enabled ? 'checked' : ''} />
+                            Enable Cache
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>Cache TTL (minutes):</label>
+                        <input type="number" id="cacheTTL" value="${config.cache.ttlMinutes}" min="1" />
+                    </div>
+                </div>
+
+                <button type="submit">Save Settings</button>
+            </form>
+
+            <script>
+                const form = document.getElementById('settingsForm');
+                const providerSelect = document.getElementById('provider');
+                const temperatureInput = document.getElementById('temperature');
+                const temperatureValue = document.getElementById('temperatureValue');
+
+                // Update temperature value display
+                temperatureInput.addEventListener('input', (e) => {
+                    temperatureValue.textContent = e.target.value;
+                });
+
+                // Handle provider change
+                providerSelect.addEventListener('change', (e) => {
+                    // Hide all provider configs
+                    document.querySelectorAll('.provider-config').forEach(config => {
+                        config.classList.add('hidden');
+                    });
+                    // Show selected provider config
+                    document.getElementById(e.target.value + '-config').classList.remove('hidden');
+                });
+
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const provider = providerSelect.value;
+                    
+                    const formData = {
+                        api: {
+                            defaultProvider: provider,
+                            maxTokens: parseInt(document.getElementById('maxTokens').value),
+                            temperature: parseFloat(document.getElementById('temperature').value),
+                        },
+                        cache: {
+                            enabled: document.getElementById('cacheEnabled').checked,
+                            ttlMinutes: parseInt(document.getElementById('cacheTTL').value),
+                        }
+                    };
+
+                    // Add provider-specific configuration
+                    switch(provider) {
+                        case 'openai':
+                            formData.api.openai = {
+                                apiKey: document.getElementById('openaiApiKey').value,
+                                model: document.getElementById('openaiModel').value
+                            };
+                            break;
+                        case 'openrouter':
+                            formData.api.openrouter = {
+                                apiKey: document.getElementById('openrouterApiKey').value,
+                                model: document.getElementById('openrouterModel').value
+                            };
+                            break;
+                        case 'anthropic':
+                            formData.api.anthropic = {
+                                apiKey: document.getElementById('anthropicApiKey').value,
+                                model: document.getElementById('anthropicModel').value
+                            };
+                            break;
+                        case 'custom':
+                            formData.api.custom = {
+                                endpoint: document.getElementById('customApiUrl').value,
+                                apiKey: document.getElementById('customApiKey').value,
+                                model: document.getElementById('customModel').value
+                            };
+                            break;
+                    }
+
+                    const vscode = acquireVsCodeApi();
+                    vscode.postMessage({
+                        type: 'saveConfig',
+                        value: formData
+                    });
+                });
+            </script>
+        </body>
+        </html>`;
+    }
+}
+
+================
+File: src/config/templates.json
+================
+{
+    "templates": {
+        "api-endpoint": {
+            "id": "api-endpoint",
+            "name": "API Endpoint",
+            "description": "Create an API endpoint with specific functionality",
+            "template": "Create an API endpoint that:\n- Method: {{method}}\n- Path: {{path}}\n- Functionality: {{functionality}}\n- Authentication: {{auth}}\n- Response format: {{response}}\n\nConsider:\n- Input validation\n- Error handling\n- Rate limiting\n- Security best practices",
+            "variables": ["method", "path", "functionality", "auth", "response"],
+            "context": {
+                "pattern": "api"
+            }
+        },
+        "database-model": {
+            "id": "database-model",
+            "name": "Database Model",
+            "description": "Create a database model with relationships",
+            "template": "Create a database model for:\n- Entity: {{entity}}\n- Properties: {{properties}}\n- Relationships: {{relationships}}\n- Constraints: {{constraints}}\n\nInclude:\n- Indexes\n- Validation rules\n- Migration approach",
+            "variables": ["entity", "properties", "relationships", "constraints"],
+            "context": {
+                "pattern": "database"
+            }
+        }
+    }
+}
+
+================
+File: src/context/ContextAnalyzer.ts
+================
+// src/context/ContextAnalyzer.ts
+
+import * as vscode from 'vscode';
+
+interface ProjectContext {
+    language: string;
+    framework: string[];
+    dependencies: Record<string, string>;
+    workspacePatterns: string[];
+}
+
+export class ContextAnalyzer {
+    private context: ProjectContext;
+
+    constructor() {
+        this.context = {
+            language: '',
+            framework: [],
+            dependencies: {},
+            workspacePatterns: []
+        };
+    }
+
+    public async analyzeWorkspace(): Promise<ProjectContext> {
+        await this.detectLanguage();
+        await this.analyzeDependencies();
+        await this.detectPatterns();
+        return this.context;
+    }
+
+    private async detectLanguage() {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor) {
+            this.context.language = activeEditor.document.languageId;
+        }
+    }
+
+    private async analyzeDependencies() {
+        // Read package.json if exists
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (workspaceFolders) {
+            const packageJsonPath = vscode.Uri.joinPath(workspaceFolders[0].uri, 'package.json');
+            try {
+                const packageJsonContent = await vscode.workspace.fs.readFile(packageJsonPath);
+                const packageJson = JSON.parse(packageJsonContent.toString());
+                this.context.dependencies = {
+                    ...packageJson.dependencies,
+                    ...packageJson.devDependencies
+                };
+                
+                // Detect frameworks
+                if (this.context.dependencies['react']) {
+                    this.context.framework.push('react');
+                }
+                if (this.context.dependencies['vue']) {
+                    this.context.framework.push('vue');
+                }
+                // Add more framework detection...
+            } catch (error) {
+                console.log('No package.json found or unable to parse');
+            }
+        }
+    }
+
+    private async detectPatterns() {
+        // Analyze workspace files for common patterns
+        // This is a simplified example
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (workspaceFolders) {
+            const files = await vscode.workspace.findFiles('**/*.{ts,js,tsx,jsx}');
+            // Analyze files for patterns...
+        }
+    }
+}
+
+================
+File: src/prompts/systemPrompt.ts
+================
+// src/prompts/systemPrompt.ts
+
+export const enhancedSystemPrompt = `You are an AI prompt optimizer focused on helping users create better prompts for their coding tasks. Follow these guidelines:
+
+1. Start with a brief question to understand the user's needs. For example:
+   - "What specific features would you like in your AI speaker webpage?"
+   - "Are you looking for any particular functionality?"
+   - "What's the main purpose of your AI speaker webpage?"
+
+2. DO NOT provide implementation details until you understand the requirements.
+
+3. After gathering requirements, create an optimized prompt that starts with "Optimized Prompt:"
+
+Example good interaction:
+User: "can you build an ai speaker web page"
+Assistant: "I'd be happy to help! First, what specific features would you like your AI speaker webpage to have? For example, voice control, music playback, or smart home integration?"
+
+Remember:
+- Always ask questions first
+- Don't provide implementation until requirements are clear
+- Keep the conversation focused
+- End with an optimized prompt when requirements are gathered`;
+
+================
+File: src/templates/TemplateEngine.ts
+================
+// src/templates/TemplateEngine.ts
+
+interface PromptTemplate {
+    id: string;
+    name: string;
+    description: string;
+    template: string;
+    variables: string[];
+    context: {
+        language?: string;
+        framework?: string;
+        pattern?: string;
+    };
+}
+
+export class TemplateEngine {
+    private templates: Map<string, PromptTemplate>;
+
+    constructor() {
+        this.templates = new Map();
+        this.initializeDefaultTemplates();
+    }
+
+    private initializeDefaultTemplates() {
+        this.addTemplate({
+            id: 'react-component',
+            name: 'React Component',
+            description: 'Create a React component with specific features',
+            template: `Create a React component that implements:
+- Component name: {{componentName}}
+- Features: {{features}}
+- State management: {{stateManagement}}
+- Props interface: {{propsInterface}}
+Consider best practices for:
+- Performance optimization
+- Error handling
+- Accessibility
+- Testing approach`,
+            variables: ['componentName', 'features', 'stateManagement', 'propsInterface'],
+            context: {
+                language: 'typescript',
+                framework: 'react'
+            }
+        });
+
+        // Add more default templates...
+    }
+
+    public getTemplate(id: string): PromptTemplate | undefined {
+        return this.templates.get(id);
+    }
+
+    public addTemplate(template: PromptTemplate) {
+        this.templates.set(template.id, template);
+    }
+
+    public applyTemplate(templateId: string, variables: Record<string, string>): string {
+        const template = this.getTemplate(templateId);
+        if (!template) {
+            throw new Error(`Template ${templateId} not found`);
+        }
+
+        let result = template.template;
+        for (const [key, value] of Object.entries(variables)) {
+            result = result.replace(new RegExp(`{{${key}}}`, 'g'), value);
+        }
+        return result;
+    }
+}
+
+================
 File: src/test/extension.test.ts
 ================
 import * as assert from 'assert';
@@ -484,109 +1541,66 @@ suite('Extension Test Suite', () => {
 ================
 File: src/extension.ts
 ================
+// src/extension.ts
+
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
-
-// System Prompt with Suggestions
-const conversationalSystemPrompt = `
-You are an AI prompt optimizer. Your goal is to refine a user's initial prompt to make it clear, specific, and effective for AI coding tools, potentially offering improvements.
-
-1.  Analyze the user's input prompt for clarity, target, context, and any specified technologies/approaches.
-2.  **Suggestion Opportunity:** Based on the analysis, if you identify a potentially significantly better alternative (e.g., a more modern library, a more suitable architectural pattern, a simpler approach) than what the user might have implied or stated, briefly note this potential suggestion.
-3.  If the prompt is clear and detailed enough (considering any suggestions you might make), proceed to step 6.
-4.  If the prompt is vague or lacks necessary details, ask a *single*, specific clarifying question to gather the most critical missing information first.
-    *   If you noted a potential suggestion in step 2, you can optionally weave it into your question (e.g., "You mentioned library X, have you considered Y which is often used for this? Also, what specific output format do you need?"). Otherwise, just ask the most critical question.
-    *   Consider these areas: Core Task, Language/Framework, Input/Output, UI/Design, Architecture, Testing, Constraints. Prioritize based on the prompt's context. Ask only one question at a time. Do NOT prefix questions with anything.
-5.  **Handling User Replies:**
-    *   If the user provides specific information, incorporate it. Address any response they had to your suggestions.
-    *   If the user provides an open-ended reply (e.g., "suggest something", "use your best judgment"), make a reasonable, common-sense assumption or suggestion for that specific aspect. Briefly state the assumption if helpful.
-    *   After processing the user's reply, assess if enough information exists to generate a high-quality final prompt.
-    *   If critical information is *still* missing, ask the *next* single most important clarifying question (potentially incorporating another suggestion if relevant and not overwhelming).
-    *   If enough information is gathered, proceed to step 6.
-6.  Once sufficient information is gathered, generate the final, optimized prompt, prefixed with "Optimized Prompt:".
-    *   Ensure the final prompt incorporates all gathered details, assumptions, and reflects any agreed-upon suggestions.
-    *   If you made a suggestion earlier that wasn't explicitly discussed but seems beneficial, you can incorporate it into the final prompt (e.g., "...using library Y for better performance.").
-7.  Be concise. Do not add conversational filler. Return only the question or the final optimized prompt.
-`;
-
-
-// Use the conversational system prompt
-const systemPrompt = conversationalSystemPrompt;
-
-// Default config (keep this)
-const defaultConfig = {
-  apiUrl: "https://openrouter.ai/api/v1/chat/completions",
-  apiKey: "",
-  model: "openai/gpt-4o-mini" // Consider if a more powerful model is better for conversation
-};
+import { TemplateEngine } from './templates/TemplateEngine';
+import { ContextAnalyzer } from './context/ContextAnalyzer';
+import { PromptCache } from './cache/PromptCache';
+import { ConfigManager } from './config/ConfigManager';
+import { SettingsWebview } from './config/SettingsWebview';
+import { enhancedSystemPrompt } from './prompts/systemPrompt';
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("🚀 AI Prompt Optimizer extension activated!");
+  console.log('🚀 AI Prompt Optimizer extension activated!');
 
-  const configDir = context.globalStorageUri.fsPath;
-  const configPath = path.join(configDir, 'config.json');
+  // Initialize core services
+  const configManager = ConfigManager.getInstance(context);
 
-  // --- Add View Provider ---
-  const provider = new PromptOptimizerViewProvider(context.extensionUri, configPath, configDir);
-
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(PromptOptimizerViewProvider.viewType, provider)
-  );
-  // --- End Add View Provider ---
-
-  // Register the 'Copy Optimized Prompt' command (keep this)
-  // Note: This might need adjustment depending on how the final UI presents the result
-  context.subscriptions.push(
-    vscode.commands.registerCommand('ai-prompt-optimizer.copyPrompt', (prompt: string) => {
-      vscode.env.clipboard.writeText(prompt);
-      vscode.window.showInformationMessage('Copied to clipboard!');
-    })
+  // Initialize the view provider
+  const provider = new PromptOptimizerViewProvider(
+    context.extensionUri,
+    configManager
   );
 
-  // Register the 'Configure' command (keep this)
+  // Register WebView Provider
   context.subscriptions.push(
-    vscode.commands.registerCommand('ai-prompt-optimizer.configure', async () => {
-      if (!fs.existsSync(configDir)) {
-        fs.mkdirSync(configDir, { recursive: true });
-        console.log("Created configuration directory:", configDir);
-      }
-
-      if (!fs.existsSync(configPath)) {
-        fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
-        console.log("Created default config file:", configPath);
-      }
-
-      const uri = vscode.Uri.file(configPath);
-      await vscode.window.showTextDocument(uri);
-      vscode.window.showInformationMessage('Edit your API URL, key, and model in config.json, then save the file.');
-    })
+    vscode.window.registerWebviewViewProvider(
+      PromptOptimizerViewProvider.viewType,
+      provider
+    )
   );
 
-  // Register the 'Show View' command (keep this)
-  context.subscriptions.push(
-    vscode.commands.registerCommand('ai-prompt-optimizer.showView', () => {
-      console.log("Command 'ai-prompt-optimizer.showView' called.");
-      // Attempt to reveal the view container
-       vscode.commands.executeCommand('workbench.view.extension.ai-prompt-optimizer-activitybar');
-    })
-  );
+  // Register Commands
+  registerCommands(context, provider, configManager);
+
+  // Setup Configuration Watcher
+  setupConfigWatcher(context, configManager);
 }
 
-// --- Add View Provider Class ---
 class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
-
-  public static readonly viewType = 'aiPromptOptimizerView'; // Must match the ID in package.json
+  public static readonly viewType = 'aiPromptOptimizerView';
 
   private _view?: vscode.WebviewView;
-  private _conversationHistory: { role: string; content: string }[] = []; // Store conversation history
+  private _conversationHistory: { role: string; content: string }[] = [];
+  private templateEngine: TemplateEngine;
+  private contextAnalyzer: ContextAnalyzer;
+  private promptCache: PromptCache;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
-    private readonly _configPath: string,
-    private readonly _configDir: string
-  ) { }
+    private readonly configManager: ConfigManager
+  ) {
+    this.templateEngine = new TemplateEngine();
+    this.contextAnalyzer = new ContextAnalyzer();
+    this.promptCache = new PromptCache(
+      configManager.get('cache').maxEntries,
+      configManager.get('cache').ttlMinutes
+    );
+  }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -596,177 +1610,243 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
     this._view = webviewView;
 
     webviewView.webview.options = {
-      // Allow scripts in the webview
       enableScripts: true,
-      localResourceRoots: [
-        this._extensionUri
-      ]
+      localResourceRoots: [this._extensionUri]
     };
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-    // Handle messages from the webview
-    webviewView.webview.onDidReceiveMessage(async data => {
-      switch (data.type) {
-        case 'optimizePrompt': // Message type from JS when user sends input
-          {
-            const userMessageContent = data.value;
-            console.log("Received message from webview:", userMessageContent);
+    this._setupWebviewMessageListener(webviewView.webview);
+  }
 
-            // If it's the first message, initialize history
-            if (this._conversationHistory.length === 0) {
-                this._conversationHistory.push({ role: "system", content: systemPrompt });
-            }
-            // Add user's message to history
-            this._conversationHistory.push({ role: "user", content: userMessageContent });
-
-            // Show loading/thinking state in webview
-            this._view?.webview.postMessage({ type: 'showLoading' });
-
-            try {
-                // Call API with current history
-                const aiResponseMessage = await this._optimizePromptApiCall(this._conversationHistory);
-
-                // Add AI's response to history
-                this._conversationHistory.push(aiResponseMessage);
-
-                // Send AI response content to webview
-                this._view?.webview.postMessage({ type: 'addMessage', role: aiResponseMessage.role, value: aiResponseMessage.content });
-
-            } catch (error: any) {
-                const errorMessage = error.message || 'An unknown error occurred during optimization.';
-                console.error("Optimization Error:", error);
-                vscode.window.showErrorMessage(`Optimization Failed: ${errorMessage}`);
-                this._view?.webview.postMessage({ type: 'showError', value: `API Error: ${errorMessage}` });
-                // Remove the last user message and potentially the system prompt if the call failed early
-                if (this._conversationHistory.length > 0 && this._conversationHistory[this._conversationHistory.length - 1].role === 'user') {
-                    this._conversationHistory.pop();
-                    if (this._conversationHistory.length === 1 && this._conversationHistory[0].role === 'system') {
-                        this._conversationHistory = []; // Reset if only system prompt remains after user pop
-                    }
-                }
-            }
+  private _setupWebviewMessageListener(webview: vscode.Webview) {
+    webview.onDidReceiveMessage(async (data) => {
+      try {
+        switch (data.type) {
+          case 'optimizePrompt':
+            await this._handleOptimizePrompt(data.value);
             break;
-          }
-        case 'clearChat': // Add a way to clear the chat/history
-            {
-                this._conversationHistory = [];
-                this._view?.webview.postMessage({ type: 'clearChat' }); // Tell webview to clear its display
-                console.log("Conversation history cleared.");
-                break;
-            }
-        case 'copyToClipboard': // Handle copy request from webview
-          {
-            // Ensure we copy only the *final* optimized prompt content if possible
-            const finalPromptPrefix = "Optimized Prompt:";
-            let textToCopy = data.value;
-            if (textToCopy.startsWith(finalPromptPrefix)) {
-                textToCopy = textToCopy.substring(finalPromptPrefix.length).trim();
-            }
-            // Use the command which shows feedback
-            vscode.commands.executeCommand('ai-prompt-optimizer.copyPrompt', textToCopy);
+
+          case 'clearChat':
+            await this._handleClearChat();
             break;
-          }
-        case 'showError': // Add a case to handle errors from webview if needed
-            vscode.window.showErrorMessage(data.value);
+
+          case 'copyToClipboard':
+            await this._handleCopyToClipboard(data.value);
             break;
+
+          case 'applyTemplate':
+            await this._handleApplyTemplate(data.templateId, data.variables);
+            break;
+
+          case 'openSettings':
+            await vscode.commands.executeCommand('ai-prompt-optimizer.openConfig');
+            break;
+        }
+      } catch (error) {
+        this._handleError(error);
       }
     });
   }
 
-  // Modified to accept history and return the full message object
-  private async _optimizePromptApiCall(messages: { role: string; content: string }[]): Promise<{ role: string; content: string }> {
-      let apiUrl: string | undefined;
-      let apiKey: string | undefined;
-      let model: string | undefined;
+  private async _handleOptimizePrompt(userMessageContent: string) {
+    try {
+        // Remove any existing thinking indicator first
+        this._view?.webview.postMessage({ type: 'removeThinking' });
+        
+        // Show new thinking indicator
+        this._view?.webview.postMessage({ type: 'showLoading' });
 
-      // --- Config reading logic (same as before) ---
-      if (!fs.existsSync(this._configDir)) { fs.mkdirSync(this._configDir, { recursive: true }); }
-      if (!fs.existsSync(this._configPath)) {
-          console.log("Configuration file not found, creating default:", this._configPath);
-          try {
-              fs.writeFileSync(this._configPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
-              apiUrl = defaultConfig.apiUrl; apiKey = defaultConfig.apiKey; model = defaultConfig.model;
-              vscode.window.showWarningMessage("Config file created. Please run 'AI Prompt Optimizer: Configure' to add your API key.");
-          } catch (error: any) { throw new Error(`Failed to create config file: ${error.message}. Please run the Configure command.`); }
-      } else {
-          try {
-              const config = JSON.parse(fs.readFileSync(this._configPath, 'utf-8'));
-              apiUrl = config.apiUrl; apiKey = config.apiKey; model = config.model || defaultConfig.model;
-          } catch (error: any) { throw new Error(`Error reading config.json: ${error.message}. Run the Configure command to fix it.`); }
-      }
-      if (!apiUrl || !apiKey) { throw new Error("Missing API URL or key in config.json. Run the 'AI Prompt Optimizer: Configure' command."); }
-      // --- End Config reading logic ---
+        // Initialize conversation if first message
+        if (this._conversationHistory.length === 0) {
+            this._conversationHistory.push({ 
+                role: "system", 
+                content: enhancedSystemPrompt 
+            });
+        }
 
-      try {
-          console.log("Making API request with history:", messages);
-          const response = await axios.post(
-              apiUrl,
-              {
-                  model: model,
-                  messages: messages, // Send the whole history
-                  max_tokens: 250, // Increased max_tokens slightly for conversation
-                  temperature: 0.7
-              },
-              { headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" } }
-          );
+        // Add user message to history
+        this._conversationHistory.push({ 
+            role: "user", 
+            content: userMessageContent 
+        });
 
-          console.log("API Response:", response.data);
+        // Get API response
+        const aiResponseMessage = await this._optimizePromptApiCall(
+            this._conversationHistory,
+            {}
+        );
 
-          if (response.data && response.data.choices && response.data.choices.length > 0 && response.data.choices[0].message) {
-              // Return the full message object (role: 'assistant', content: '...')
-              return response.data.choices[0].message;
-          } else {
-              console.error("Unexpected API response structure:", response.data);
-              throw new Error("Received an unexpected response structure from the API.");
-          }
+        // Add response to history
+        this._conversationHistory.push(aiResponseMessage);
 
-      } catch (error: any) {
-          console.error("🔥 API call failed:", {
-              url: apiUrl,
-              model: model,
-              // Avoid logging full history here for brevity/privacy if needed
-              error: error.response?.data || error.message
-          });
+        // Check if this contains an optimized prompt
+        const hasOptimizedPrompt = aiResponseMessage.content.includes('Optimized Prompt:');
 
-          const err = error.response?.data?.error?.message || JSON.stringify(error.response?.data || error.message);
-          throw new Error(err); // Throw the specific API error message
-      }
+        // Send response to webview
+        this._view?.webview.postMessage({
+            type: 'addMessage',
+            role: aiResponseMessage.role,
+            value: aiResponseMessage.content,
+            isOptimizedPrompt: hasOptimizedPrompt
+        });
+
+    } catch (error) {
+        this._handleError(error);
+    }
+}
+
+
+  private _addMessageToConversation(role: string, content: string) {
+    this._view?.webview.postMessage({
+      type: 'addMessage',
+      role: role,
+      value: content
+    });
   }
 
+  private async _optimizePromptApiCall(
+    messages: { role: string; content: string }[],
+    context: any
+  ): Promise<{ role: string; content: string }> {
+    const config = this.configManager.getConfig();
+    const provider = config.api.defaultProvider;
+    const providerConfig = config.api[provider as keyof typeof config.api];
 
-  // --- _getHtmlForWebview for chat display ---
+    // Debug logging
+    console.log('Current provider:', provider);
+    console.log('API Endpoint:', this.configManager.getApiEndpoint());
+    console.log('Selected model:', providerConfig?.model);
+    // Don't log the full API key for security
+    console.log('API Key present:', !!providerConfig?.apiKey);
+
+    if (!providerConfig?.apiKey) {
+      throw new Error('Please configure your API key in the settings (click the gear icon)');
+    }
+
+    try {
+      const response = await axios.post(
+        this.configManager.getApiEndpoint(),
+        {
+          model: providerConfig.model,
+          messages: messages,
+          max_tokens: config.api.maxTokens,
+          temperature: config.api.temperature,
+          context: context
+        },
+        {
+          headers: {
+            "Authorization": `Bearer ${providerConfig.apiKey}`,
+            "Content-Type": "application/json",
+            // Add OpenRouter specific headers if using OpenRouter
+            ...(provider === 'openrouter' && {
+              "HTTP-Referer": "https://github.com/yourusername/your-extension",
+              "X-Title": "VS Code AI Prompt Optimizer"
+            })
+          }
+        }
+      );
+
+      if (response.data?.choices?.[0]?.message) {
+        return response.data.choices[0].message;
+      }
+
+      throw new Error("Unexpected API response structure");
+
+    } catch (error: any) {
+      console.error('API call error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+
+      // Provide more specific error messages
+      if (error.response?.status === 401) {
+        throw new Error('Invalid API key. Please check your API key in the settings.');
+      } else if (error.response?.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      } else if (error.response?.data?.error?.message) {
+        throw new Error(`API Error: ${error.response.data.error.message}`);
+      }
+
+      throw new Error(`API call failed: ${error.message}`);
+    }
+  }
+
+  private async _handleClearChat() {
+    this._conversationHistory = [];
+    this._view?.webview.postMessage({ type: 'clearChat' });
+  }
+
+  private async _handleCopyToClipboard(text: string) {
+    await vscode.env.clipboard.writeText(text);
+    vscode.window.showInformationMessage('Copied to clipboard!');
+  }
+
+  private async _handleApplyTemplate(templateId: string, variables: Record<string, string>) {
+    try {
+      const template = this.templateEngine.getTemplate(templateId);
+      if (template) {
+        const promptText = this.templateEngine.applyTemplate(templateId, variables);
+        await this._handleOptimizePrompt(promptText);
+      }
+    } catch (error) {
+      this._handleError(error);
+    }
+  }
+
+  private _handleError(error: any) {
+    const errorMessage = error.message || 'An unknown error occurred';
+    console.error("Error:", error);
+    vscode.window.showErrorMessage(`AI Prompt Optimizer: ${errorMessage}`);
+    this._view?.webview.postMessage({
+      type: 'showError',
+      value: errorMessage
+    });
+  }
+
   private _getHtmlForWebview(webview: vscode.Webview): string {
-    // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.js'));
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'main.js')
+    );
+    const styleResetUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'reset.css')
+    );
+    const styleVSCodeUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'vscode.css')
+    );
+    const styleMainUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css')
+    );
+    const codiconUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'codicon.css')
+    );
 
-    // Do the same for the stylesheet.
-    const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'reset.css'));
-    const styleVSCodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vscode.css'));
-    const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css'));
-
-    // Use a nonce to only allow specific scripts to be run
     const nonce = getNonce();
 
-    // HTML structure for chat display
     return `<!DOCTYPE html>
-			<html lang="en">
-			<head>
-				<meta charset="UTF-8">
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<link href="${styleResetUri}" rel="stylesheet">
-				<link href="${styleVSCodeUri}" rel="stylesheet">
-				<link href="${styleMainUri}" rel="stylesheet">
-				<title>AI Prompt Optimizer</title>
-			</head>
-			<body>
-                <h2>Optimize AI Prompt</h2>
-
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <link href="${styleResetUri}" rel="stylesheet">
+                <link href="${styleVSCodeUri}" rel="stylesheet">
+                <link href="${styleMainUri}" rel="stylesheet">
+                <link href="${codiconUri}" rel="stylesheet">
+                <title>AI Prompt Optimizer</title>
+            </head>
+            <body>
+                <div class="header">
+                    <h2>Optimize AI Prompt</h2>
+                    <button id="settings-button" class="icon-button" title="Open Settings">
+                        <i class="codicon codicon-gear"></i>
+                    </button>
+                </div>
                 <div id="conversation-area" class="conversation-area">
                     <!-- Conversation history will be appended here by JS -->
                 </div>
-
                 <div class="input-area">
                     <textarea id="prompt-input" rows="3" placeholder="Enter your initial prompt or reply here..."></textarea>
                     <div class="button-group">
@@ -774,21 +1854,77 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
                         <button id="clear-button">Clear Chat</button>
                     </div>
                 </div>
-
-                <!-- Copy button might be added dynamically by JS later -->
-                <button id="copy-button" style="display: none; margin-top: 10px;">Copy Final Prompt</button>
-
-				<script nonce="${nonce}" src="${scriptUri}"></script>
-			</body>
-			</html>`;
+                <button id="copy-button" style="display: none;">Copy Final Prompt</button>
+                <script nonce="${nonce}" src="${scriptUri}"></script>
+            </body>
+            </html>`;
   }
 }
-// --- End View Provider Class ---
 
+function registerCommands(
+  context: vscode.ExtensionContext,
+  provider: PromptOptimizerViewProvider,
+  configManager: ConfigManager
+) {
+  // Register the 'Configure' command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ai-prompt-optimizer.openConfig', () => {
+      SettingsWebview.render(context.extensionUri, configManager);
+    })
+  );
 
-export function deactivate() {}
+  // Register the 'Show View' command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ai-prompt-optimizer.showView', () => {
+      vscode.commands.executeCommand(
+        'workbench.view.extension.ai-prompt-optimizer-activitybar'
+      );
+    })
+  );
 
-// Helper function for nonce (keep this)
+  // Register the 'Copy Prompt' command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ai-prompt-optimizer.copyPrompt', async (prompt: string) => {
+      await vscode.env.clipboard.writeText(prompt);
+      vscode.window.showInformationMessage('Prompt copied to clipboard!');
+    })
+  );
+
+  // Register the 'Reset Config' command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ai-prompt-optimizer.resetConfig', async () => {
+      try {
+        await configManager.resetToDefaults();
+        vscode.window.showInformationMessage('Configuration has been reset to defaults');
+      } catch (error) {
+        vscode.window.showErrorMessage('Failed to reset configuration');
+      }
+    })
+  );
+}
+
+function setupConfigWatcher(
+  context: vscode.ExtensionContext,
+  configManager: ConfigManager
+) {
+  const configWatcher = vscode.workspace.createFileSystemWatcher('**/config.json');
+
+  configWatcher.onDidChange(async () => {
+    try {
+      await configManager.loadConfig();
+      vscode.window.showInformationMessage(
+        'AI Prompt Optimizer configuration updated'
+      );
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        'Failed to reload configuration. Please check the file format.'
+      );
+    }
+  });
+
+  context.subscriptions.push(configWatcher);
+}
+
 function getNonce() {
   let text = '';
   const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -797,6 +1933,8 @@ function getNonce() {
   }
   return text;
 }
+
+export function deactivate() { }
 
 ================
 File: .gitignore
@@ -843,14 +1981,6 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ## [Unreleased]
 
 - Initial release
-
-================
-File: config.json
-================
-{
-  "apiUrl": "https://api.openai.com/v1/chat/completions",
-  "apiKey": ""
-}
 
 ================
 File: eslint.config.mjs
@@ -917,6 +2047,14 @@ File: package.json
       {
         "command": "ai-prompt-optimizer.configure",
         "title": "AI Prompt Optimizer: Configure"
+      },
+      {
+        "command": "ai-prompt-optimizer.openConfig",
+        "title": "AI Prompt Optimizer: Open Configuration"
+      },
+      {
+        "command": "ai-prompt-optimizer.resetConfig",
+        "title": "AI Prompt Optimizer: Reset Configuration"
       }
     ],
     "viewsContainers": {
@@ -935,6 +2073,15 @@ File: package.json
           "name": "Optimize Prompt",
           "type": "webview",
           "contextualTitle": "AI Prompt Optimizer"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "ai-prompt-optimizer.openConfig",
+          "when": "view == aiPromptOptimizerView",
+          "group": "navigation"
         }
       ]
     }

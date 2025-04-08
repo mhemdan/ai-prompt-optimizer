@@ -1,160 +1,140 @@
-// This script will be run within the webview itself
+// media/main.js
 (function () {
-    // @ts-ignore
-    const vscode = acquireVsCodeApi(); // API to communicate with the extension host
+    const vscode = acquireVsCodeApi();
+    const promptInput = document.getElementById('prompt-input');
+    const sendButton = document.getElementById('send-button');
+    const clearButton = document.getElementById('clear-button');
+    const conversationArea = document.getElementById('conversation-area');
+    const copyButtonContainer = document.getElementById('copy-button-container');
+    const copyButton = document.getElementById('copy-button');
+    let lastOptimizedPrompt = '';
 
-    const promptInput = document.getElementById('prompt-input'); // Text area for input
-    const sendButton = document.getElementById('send-button'); // Send button
-    const clearButton = document.getElementById('clear-button'); // Clear button
-    const conversationArea = document.getElementById('conversation-area'); // Div to display messages
-    const copyButton = document.getElementById('copy-button'); // Copy button (initially hidden)
-
-    let lastOptimizedPrompt = ''; // Store the final prompt for copying
-
-    // --- Helper Function to Add Messages to UI ---
-    function addMessageToUI(role, text, isThinking = false) {
-        if (!conversationArea) return;
-
-        // Remove previous thinking indicator if it exists
-        const existingThinking = conversationArea?.querySelector('.thinking-indicator');
-        if (existingThinking) {
-            existingThinking.remove();
-        }
-
-
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('message', role === 'user' ? 'user-message' : 'assistant-message');
-        if (isThinking) {
-            messageDiv.classList.add('thinking-indicator'); // Add class to identify thinking message
-        }
-
-        // Basic text formatting (can be enhanced)
-        const contentDiv = document.createElement('div');
-        contentDiv.textContent = text;
-        messageDiv.appendChild(contentDiv);
-
-        conversationArea.appendChild(messageDiv);
-        // Scroll to the bottom
+    // --- Helper Functions ---
+    function addThinkingIndicator() {
+        removeThinkingIndicator(); // Remove any existing indicator first
+        const thinkingDiv = document.createElement('div');
+        thinkingDiv.classList.add('message', 'assistant-message', 'thinking-indicator');
+        thinkingDiv.textContent = 'Thinking...';
+        conversationArea.appendChild(thinkingDiv);
         conversationArea.scrollTop = conversationArea.scrollHeight;
+    }
 
-        // Check if this is the final optimized prompt
-        const finalPromptPrefix = "Optimized Prompt:";
-        if (role === 'assistant' && text.startsWith(finalPromptPrefix)) {
-            lastOptimizedPrompt = text.substring(finalPromptPrefix.length).trim();
-            copyButton.style.display = 'inline-block'; // Show copy button
-        } else {
-             // Hide copy button if it's not the final prompt
-             if (role === 'assistant') {
-                 copyButton.style.display = 'none';
-                 lastOptimizedPrompt = '';
-             }
+    function removeThinkingIndicator() {
+        const thinkingIndicator = document.querySelector('.thinking-indicator');
+        if (thinkingIndicator) {
+            thinkingIndicator.remove();
         }
     }
 
-    // --- Event Listeners ---
+    function addMessageToUI(role, text, isOptimizedPrompt = false) {
+        removeThinkingIndicator();
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message', role === 'user' ? 'user-message' : 'assistant-message');
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.textContent = text;
+        messageDiv.appendChild(contentDiv);
+        
+        conversationArea.appendChild(messageDiv);
+        conversationArea.scrollTop = conversationArea.scrollHeight;
 
-    // Handle Send button click
+        // Handle optimized prompt separately
+        if (isOptimizedPrompt && text.includes('Optimized Prompt:')) {
+            const optimizedPrompt = text.split('Optimized Prompt:')[1].trim();
+            lastOptimizedPrompt = optimizedPrompt;
+            showCopyButton(optimizedPrompt);
+        }
+    }
+
+    function showCopyButton(optimizedPrompt) {
+        copyButton.onclick = () => {
+            vscode.postMessage({
+                type: 'copyToClipboard',
+                value: optimizedPrompt
+            });
+        };
+        copyButtonContainer.style.display = 'block';
+    }
+
+    function hideCopyButton() {
+        copyButtonContainer.style.display = 'none';
+    }
+
+    function clearChat() {
+        conversationArea.innerHTML = '';
+        promptInput.value = '';
+        promptInput.disabled = false;
+        sendButton.disabled = false;
+        lastOptimizedPrompt = '';
+        hideCopyButton();
+    }
+
+    // --- Event Listeners ---
     if (sendButton && promptInput) {
         sendButton.addEventListener('click', () => {
             const promptText = promptInput.value.trim();
             if (promptText) {
-                // Add user message to UI immediately
                 addMessageToUI('user', promptText);
-
-                // Send message to extension host
                 vscode.postMessage({
-                    type: 'optimizePrompt', // This type is handled in extension.ts
+                    type: 'optimizePrompt',
                     value: promptText
                 });
-
-                // Clear the input field
                 promptInput.value = '';
-                copyButton.style.display = 'none'; // Hide copy button while waiting for response
-                lastOptimizedPrompt = '';
             }
         });
-    } else {
-        console.error("Could not find send button or prompt input elements.");
     }
 
-     // Allow sending with Enter key in textarea (Shift+Enter for newline)
-     if (promptInput) {
+    if (promptInput) {
         promptInput.addEventListener('keydown', (event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault(); // Prevent default newline insertion
-                sendButton.click(); // Trigger send button click
+                event.preventDefault();
+                sendButton.click();
             }
         });
     }
 
-    // Handle Clear button click
     if (clearButton) {
         clearButton.addEventListener('click', () => {
             vscode.postMessage({ type: 'clearChat' });
         });
-    } else {
-        console.error("Could not find clear button element.");
     }
-
-    // Handle Copy button click
-    if (copyButton) {
-        copyButton.addEventListener('click', () => {
-            if (lastOptimizedPrompt) {
-                vscode.postMessage({
-                    type: 'copyToClipboard',
-                    value: lastOptimizedPrompt // Send only the optimized part
-                });
-            }
-        });
-    } else {
-         console.error("Could not find copy button element.");
-    }
-
 
     // --- Handle Messages from Extension Host ---
     window.addEventListener('message', event => {
         const message = event.data;
         switch (message.type) {
-            case 'addMessage': // Add AI message from host
-                {
-                    addMessageToUI(message.role, message.value);
-                    // Re-enable input/button if they were disabled during loading
-                    promptInput.disabled = false;
-                    sendButton.disabled = false;
-                    break;
-                }
-            case 'showLoading': // Show loading state
-                 {
-                    // Optional: Add a visual loading indicator
-                    // Disable input/button while loading
-                    promptInput.disabled = true;
-                    sendButton.disabled = true;
-                    addMessageToUI('assistant', 'Thinking...', true); // Pass thinking flag
-                    copyButton.style.display = 'none';
-                    lastOptimizedPrompt = '';
-                    break;
-                 }
-            case 'clearChat': // Clear the UI display
-                {
-                    conversationArea.innerHTML = ''; // Clear messages
-                    promptInput.value = ''; // Clear input
-                    promptInput.disabled = false; // Re-enable
-                    sendButton.disabled = false; // Re-enable
-                    copyButton.style.display = 'none'; // Hide copy button
-                    lastOptimizedPrompt = '';
-                    break;
-                }
-            case 'showError': // Display error messages from the backend
-                 {
-                    addMessageToUI('assistant', `Error: ${message.value}`);
-                    // Re-enable input/button after error
-                    promptInput.disabled = false;
-                    sendButton.disabled = false;
-                    copyButton.style.display = 'none';
-                    lastOptimizedPrompt = '';
-                    break;
-                 }
+            case 'addMessage': {
+                promptInput.disabled = false;
+                sendButton.disabled = false;
+                addMessageToUI(message.role, message.value, message.isOptimizedPrompt);
+                break;
+            }
+            case 'showLoading': {
+                promptInput.disabled = true;
+                sendButton.disabled = true;
+                addThinkingIndicator();
+                break;
+            }
+            case 'clearChat': {
+                clearChat();
+                break;
+            }
+            case 'showError': {
+                removeThinkingIndicator();
+                addMessageToUI('assistant', `Error: ${message.value}`);
+                promptInput.disabled = false;
+                sendButton.disabled = false;
+                break;
+            }
+            case 'copySuccess': {
+                // Optional: Show a temporary success message
+                const successDiv = document.createElement('div');
+                successDiv.textContent = 'Copied to clipboard!';
+                successDiv.className = 'copy-success-message';
+                copyButtonContainer.appendChild(successDiv);
+                setTimeout(() => successDiv.remove(), 2000);
+                break;
+            }
         }
     });
-
 }());

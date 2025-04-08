@@ -1,91 +1,154 @@
+/* Base Layout */
 body {
-	padding: 10px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 20px); /* Full height minus padding */
+    height: calc(100vh - 20px);
+}
+
+/* Header Styles */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
 }
 
 h2 {
     margin-bottom: 10px;
-    flex-shrink: 0; /* Prevent shrinking */
+    flex-shrink: 0;
 }
 
+/* Settings Button */
+.icon-button {
+    background: none;
+    border: none;
+    padding: 5px;
+    cursor: pointer;
+    color: var(--vscode-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-button:hover {
+    background-color: var(--vscode-toolbar-hoverBackground);
+    border-radius: 3px;
+}
+
+.codicon {
+    font-family: codicon;
+    font-size: 16px;
+    line-height: 16px;
+}
+
+.codicon-gear:before {
+    content: "\ea6c";
+}
+
+/* Conversation Area */
 .conversation-area {
-    flex-grow: 1; /* Take available space */
+    flex-grow: 1;
     border: 1px solid var(--vscode-editorWidget-border, var(--vscode-separator-foreground));
     padding: 8px;
     margin-bottom: 10px;
-    overflow-y: auto; /* Enable scrolling */
+    overflow-y: auto;
     background-color: var(--vscode-textBlockQuote-background, var(--vscode-editorWidget-background));
     border-radius: 3px;
 }
 
+/* Message Styles */
 .message {
     margin-bottom: 8px;
     padding: 6px 10px;
     border-radius: 5px;
-    white-space: pre-wrap; /* Preserve whitespace and wrap */
+    white-space: pre-wrap;
     word-wrap: break-word;
-    max-width: 80%; /* Prevent messages from taking full width */
-    clear: both; /* Ensure messages don't overlap floats */
+    max-width: 80%;
+    clear: both;
 }
 
 .user-message {
-    background-color: var(--vscode-list-activeSelectionBackground, #094771); /* Use selection background or a fallback */
+    background-color: var(--vscode-list-activeSelectionBackground, #094771);
     color: var(--vscode-list-activeSelectionForeground, white);
-    /* text-align: right; Align user messages to the right */
-    float: right; /* Float user messages to the right */
-    /* margin-left: 20%; Indent from left */
+    float: right;
 }
 
 .assistant-message {
-    background-color: var(--vscode-list-inactiveSelectionBackground, var(--vscode-editorWidget-background, #37373d)); /* Use inactive selection or editor widget background */
+    background-color: var(--vscode-list-inactiveSelectionBackground, var(--vscode-editorWidget-background, #37373d));
     color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
-    /* text-align: left; */
-    float: left; /* Float assistant messages to the left */
-   /* margin-right: 20%; Indent from right */
+    float: left;
 }
 
-/* Style for thinking indicator */
-.thinking-indicator {
-    font-style: italic;
-    color: var(--vscode-descriptionForeground);
-}
-
-
-.input-area {
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0; /* Prevent shrinking */
-    margin-top: 5px; /* Add some space above input */
-}
-
-textarea#prompt-input {
-	width: calc(100% - 16px); /* Adjust for padding */
-	margin-bottom: 5px; /* Smaller margin */
-	resize: vertical;
-    min-height: 40px; /* Minimum height */
-    max-height: 150px; /* Maximum height before scrolling */
-}
-
-.button-group {
-    display: flex;
-    gap: 5px; /* Space between buttons */
-}
-
-.button-group button {
-    flex-grow: 1; /* Make buttons share space */
-}
-
-button#copy-button {
-    display: none; /* Hidden by default */
-    margin-top: 10px;
-    width: 100%; /* Full width */
-    flex-shrink: 0;
-}
-
-/* Style for error messages (can be applied to assistant messages) */
 .assistant-message.error {
     color: var(--vscode-errorForeground);
     border: 1px solid var(--vscode-inputValidation-errorBorder);
+}
+
+/* Thinking Indicator */
+.thinking-indicator {
+    font-style: italic;
+    color: var(--vscode-descriptionForeground);
+    float: left;
+    clear: both;
+}
+
+/* Optimized Prompt Styles */
+.final-prompt, .optimized-prompt {
+    border-left: 3px solid var(--vscode-textLink-foreground);
+    margin-top: 10px;
+    padding-left: 10px;
+}
+
+/* Copy Button Styles */
+.copy-button-container {
+    position: sticky;
+    bottom: 10px;
+    right: 10px;
+    text-align: right;
+    padding: 10px;
+    background-color: var(--vscode-editor-background);
+    z-index: 100;
+    margin-top: 10px;
+    display: none;
+}
+
+.copy-button {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    padding: 6px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.copy-button:hover {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+/* Input Area */
+.input-area {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    margin-top: 5px;
+}
+
+textarea#prompt-input {
+    width: calc(100% - 16px);
+    margin-bottom: 5px;
+    resize: vertical;
+    min-height: 40px;
+    max-height: 150px;
+}
+
+/* Button Group */
+.button-group {
+    display: flex;
+    gap: 5px;
+}
+
+.button-group button {
+    flex-grow: 1;
 }
