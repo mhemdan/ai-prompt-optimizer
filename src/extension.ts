@@ -3,18 +3,30 @@ import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
 
-// New System Prompt for conversational optimization
+// System Prompt with Suggestions
 const conversationalSystemPrompt = `
-You are an AI prompt optimizer. Your goal is to refine a user's initial prompt to make it clear, specific, and effective for AI coding tools.
+You are an AI prompt optimizer. Your goal is to refine a user's initial prompt to make it clear, specific, and effective for AI coding tools, potentially offering improvements.
 
-1.  Analyze the user's input prompt.
-2.  If the prompt is clear and detailed enough, return the final, optimized prompt directly, prefixed with "Optimized Prompt:".
-3.  If the prompt is vague or lacks necessary details (e.g., target language, desired output format, specific constraints), ask a single, specific clarifying question to gather the missing information. Do NOT prefix questions with anything.
-4.  Once you have enough information after asking questions, provide the final, optimized prompt, prefixed with "Optimized Prompt:".
-5.  Be concise. Do not add conversational filler.
+1.  Analyze the user's input prompt for clarity, target, context, and any specified technologies/approaches.
+2.  **Suggestion Opportunity:** Based on the analysis, if you identify a potentially significantly better alternative (e.g., a more modern library, a more suitable architectural pattern, a simpler approach) than what the user might have implied or stated, briefly note this potential suggestion.
+3.  If the prompt is clear and detailed enough (considering any suggestions you might make), proceed to step 6.
+4.  If the prompt is vague or lacks necessary details, ask a *single*, specific clarifying question to gather the most critical missing information first.
+    *   If you noted a potential suggestion in step 2, you can optionally weave it into your question (e.g., "You mentioned library X, have you considered Y which is often used for this? Also, what specific output format do you need?"). Otherwise, just ask the most critical question.
+    *   Consider these areas: Core Task, Language/Framework, Input/Output, UI/Design, Architecture, Testing, Constraints. Prioritize based on the prompt's context. Ask only one question at a time. Do NOT prefix questions with anything.
+5.  **Handling User Replies:**
+    *   If the user provides specific information, incorporate it. Address any response they had to your suggestions.
+    *   If the user provides an open-ended reply (e.g., "suggest something", "use your best judgment"), make a reasonable, common-sense assumption or suggestion for that specific aspect. Briefly state the assumption if helpful.
+    *   After processing the user's reply, assess if enough information exists to generate a high-quality final prompt.
+    *   If critical information is *still* missing, ask the *next* single most important clarifying question (potentially incorporating another suggestion if relevant and not overwhelming).
+    *   If enough information is gathered, proceed to step 6.
+6.  Once sufficient information is gathered, generate the final, optimized prompt, prefixed with "Optimized Prompt:".
+    *   Ensure the final prompt incorporates all gathered details, assumptions, and reflects any agreed-upon suggestions.
+    *   If you made a suggestion earlier that wasn't explicitly discussed but seems beneficial, you can incorporate it into the final prompt (e.g., "...using library Y for better performance.").
+7.  Be concise. Do not add conversational filler. Return only the question or the final optimized prompt.
 `;
 
-// Use the new system prompt
+
+// Use the conversational system prompt
 const systemPrompt = conversationalSystemPrompt;
 
 // Default config (keep this)
@@ -110,7 +122,7 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async data => {
       switch (data.type) {
-        case 'optimizePrompt': // Renamed from 'optimizePrompt' in JS, should be 'sendMessage' or similar
+        case 'optimizePrompt': // Message type from JS when user sends input
           {
             const userMessageContent = data.value;
             console.log("Received message from webview:", userMessageContent);
@@ -134,13 +146,6 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
 
                 // Send AI response content to webview
                 this._view?.webview.postMessage({ type: 'addMessage', role: aiResponseMessage.role, value: aiResponseMessage.content });
-
-                // If the response is the final optimized prompt, maybe clear history for next time?
-                // Or allow further refinement? For now, keep history.
-                // if (aiResponseMessage.content.startsWith("Optimized Prompt:")) {
-                //     // Optional: Clear history after final prompt?
-                //     // this._conversationHistory = [];
-                // }
 
             } catch (error: any) {
                 const errorMessage = error.message || 'An unknown error occurred during optimization.';
@@ -172,8 +177,8 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
             if (textToCopy.startsWith(finalPromptPrefix)) {
                 textToCopy = textToCopy.substring(finalPromptPrefix.length).trim();
             }
-            vscode.env.clipboard.writeText(textToCopy);
-            vscode.window.showInformationMessage('Optimized prompt copied to clipboard!');
+            // Use the command which shows feedback
+            vscode.commands.executeCommand('ai-prompt-optimizer.copyPrompt', textToCopy);
             break;
           }
         case 'showError': // Add a case to handle errors from webview if needed
@@ -244,7 +249,7 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
   }
 
 
-  // --- _getHtmlForWebview needs update for chat display ---
+  // --- _getHtmlForWebview for chat display ---
   private _getHtmlForWebview(webview: vscode.Webview): string {
     // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.js'));
@@ -257,7 +262,7 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
     // Use a nonce to only allow specific scripts to be run
     const nonce = getNonce();
 
-    // Updated HTML structure for basic chat display
+    // HTML structure for chat display
     return `<!DOCTYPE html>
 			<html lang="en">
 			<head>

@@ -45,6 +45,11 @@ Additional Info:
 ================================================================
 Directory Structure
 ================================================================
+media/
+  main.css
+  main.js
+  reset.css
+  vscode.css
 src/
   test/
     extension.test.ts
@@ -63,6 +68,399 @@ vsc-extension-quickstart.md
 ================================================================
 Files
 ================================================================
+
+================
+File: media/main.css
+================
+body {
+	padding: 10px;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 20px); /* Full height minus padding */
+}
+
+h2 {
+    margin-bottom: 10px;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.conversation-area {
+    flex-grow: 1; /* Take available space */
+    border: 1px solid var(--vscode-editorWidget-border, var(--vscode-separator-foreground));
+    padding: 8px;
+    margin-bottom: 10px;
+    overflow-y: auto; /* Enable scrolling */
+    background-color: var(--vscode-textBlockQuote-background, var(--vscode-editorWidget-background));
+    border-radius: 3px;
+}
+
+.message {
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border-radius: 5px;
+    white-space: pre-wrap; /* Preserve whitespace and wrap */
+    word-wrap: break-word;
+    max-width: 80%; /* Prevent messages from taking full width */
+    clear: both; /* Ensure messages don't overlap floats */
+}
+
+.user-message {
+    background-color: var(--vscode-list-activeSelectionBackground, #094771); /* Use selection background or a fallback */
+    color: var(--vscode-list-activeSelectionForeground, white);
+    /* text-align: right; Align user messages to the right */
+    float: right; /* Float user messages to the right */
+    /* margin-left: 20%; Indent from left */
+}
+
+.assistant-message {
+    background-color: var(--vscode-list-inactiveSelectionBackground, var(--vscode-editorWidget-background, #37373d)); /* Use inactive selection or editor widget background */
+    color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
+    /* text-align: left; */
+    float: left; /* Float assistant messages to the left */
+   /* margin-right: 20%; Indent from right */
+}
+
+/* Style for thinking indicator */
+.thinking-indicator {
+    font-style: italic;
+    color: var(--vscode-descriptionForeground);
+}
+
+
+.input-area {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0; /* Prevent shrinking */
+    margin-top: 5px; /* Add some space above input */
+}
+
+textarea#prompt-input {
+	width: calc(100% - 16px); /* Adjust for padding */
+	margin-bottom: 5px; /* Smaller margin */
+	resize: vertical;
+    min-height: 40px; /* Minimum height */
+    max-height: 150px; /* Maximum height before scrolling */
+}
+
+.button-group {
+    display: flex;
+    gap: 5px; /* Space between buttons */
+}
+
+.button-group button {
+    flex-grow: 1; /* Make buttons share space */
+}
+
+button#copy-button {
+    display: none; /* Hidden by default */
+    margin-top: 10px;
+    width: 100%; /* Full width */
+    flex-shrink: 0;
+}
+
+/* Style for error messages (can be applied to assistant messages) */
+.assistant-message.error {
+    color: var(--vscode-errorForeground);
+    border: 1px solid var(--vscode-inputValidation-errorBorder);
+}
+
+================
+File: media/main.js
+================
+// This script will be run within the webview itself
+(function () {
+    // @ts-ignore
+    const vscode = acquireVsCodeApi(); // API to communicate with the extension host
+
+    const promptInput = document.getElementById('prompt-input'); // Text area for input
+    const sendButton = document.getElementById('send-button'); // Send button
+    const clearButton = document.getElementById('clear-button'); // Clear button
+    const conversationArea = document.getElementById('conversation-area'); // Div to display messages
+    const copyButton = document.getElementById('copy-button'); // Copy button (initially hidden)
+
+    let lastOptimizedPrompt = ''; // Store the final prompt for copying
+
+    // --- Helper Function to Add Messages to UI ---
+    function addMessageToUI(role, text, isThinking = false) {
+        if (!conversationArea) return;
+
+        // Remove previous thinking indicator if it exists
+        const existingThinking = conversationArea?.querySelector('.thinking-indicator');
+        if (existingThinking) {
+            existingThinking.remove();
+        }
+
+
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message', role === 'user' ? 'user-message' : 'assistant-message');
+        if (isThinking) {
+            messageDiv.classList.add('thinking-indicator'); // Add class to identify thinking message
+        }
+
+        // Basic text formatting (can be enhanced)
+        const contentDiv = document.createElement('div');
+        contentDiv.textContent = text;
+        messageDiv.appendChild(contentDiv);
+
+        conversationArea.appendChild(messageDiv);
+        // Scroll to the bottom
+        conversationArea.scrollTop = conversationArea.scrollHeight;
+
+        // Check if this is the final optimized prompt
+        const finalPromptPrefix = "Optimized Prompt:";
+        if (role === 'assistant' && text.startsWith(finalPromptPrefix)) {
+            lastOptimizedPrompt = text.substring(finalPromptPrefix.length).trim();
+            copyButton.style.display = 'inline-block'; // Show copy button
+        } else {
+             // Hide copy button if it's not the final prompt
+             if (role === 'assistant') {
+                 copyButton.style.display = 'none';
+                 lastOptimizedPrompt = '';
+             }
+        }
+    }
+
+    // --- Event Listeners ---
+
+    // Handle Send button click
+    if (sendButton && promptInput) {
+        sendButton.addEventListener('click', () => {
+            const promptText = promptInput.value.trim();
+            if (promptText) {
+                // Add user message to UI immediately
+                addMessageToUI('user', promptText);
+
+                // Send message to extension host
+                vscode.postMessage({
+                    type: 'optimizePrompt', // This type is handled in extension.ts
+                    value: promptText
+                });
+
+                // Clear the input field
+                promptInput.value = '';
+                copyButton.style.display = 'none'; // Hide copy button while waiting for response
+                lastOptimizedPrompt = '';
+            }
+        });
+    } else {
+        console.error("Could not find send button or prompt input elements.");
+    }
+
+     // Allow sending with Enter key in textarea (Shift+Enter for newline)
+     if (promptInput) {
+        promptInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault(); // Prevent default newline insertion
+                sendButton.click(); // Trigger send button click
+            }
+        });
+    }
+
+    // Handle Clear button click
+    if (clearButton) {
+        clearButton.addEventListener('click', () => {
+            vscode.postMessage({ type: 'clearChat' });
+        });
+    } else {
+        console.error("Could not find clear button element.");
+    }
+
+    // Handle Copy button click
+    if (copyButton) {
+        copyButton.addEventListener('click', () => {
+            if (lastOptimizedPrompt) {
+                vscode.postMessage({
+                    type: 'copyToClipboard',
+                    value: lastOptimizedPrompt // Send only the optimized part
+                });
+            }
+        });
+    } else {
+         console.error("Could not find copy button element.");
+    }
+
+
+    // --- Handle Messages from Extension Host ---
+    window.addEventListener('message', event => {
+        const message = event.data;
+        switch (message.type) {
+            case 'addMessage': // Add AI message from host
+                {
+                    addMessageToUI(message.role, message.value);
+                    // Re-enable input/button if they were disabled during loading
+                    promptInput.disabled = false;
+                    sendButton.disabled = false;
+                    break;
+                }
+            case 'showLoading': // Show loading state
+                 {
+                    // Optional: Add a visual loading indicator
+                    // Disable input/button while loading
+                    promptInput.disabled = true;
+                    sendButton.disabled = true;
+                    addMessageToUI('assistant', 'Thinking...', true); // Pass thinking flag
+                    copyButton.style.display = 'none';
+                    lastOptimizedPrompt = '';
+                    break;
+                 }
+            case 'clearChat': // Clear the UI display
+                {
+                    conversationArea.innerHTML = ''; // Clear messages
+                    promptInput.value = ''; // Clear input
+                    promptInput.disabled = false; // Re-enable
+                    sendButton.disabled = false; // Re-enable
+                    copyButton.style.display = 'none'; // Hide copy button
+                    lastOptimizedPrompt = '';
+                    break;
+                }
+            case 'showError': // Display error messages from the backend
+                 {
+                    addMessageToUI('assistant', `Error: ${message.value}`);
+                    // Re-enable input/button after error
+                    promptInput.disabled = false;
+                    sendButton.disabled = false;
+                    copyButton.style.display = 'none';
+                    lastOptimizedPrompt = '';
+                    break;
+                 }
+        }
+    });
+
+}());
+
+================
+File: media/reset.css
+================
+/* http://meyerweb.com/eric/tools/css/reset/
+   v2.0 | 20110126
+   License: none (public domain)
+*/
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed,
+figure, figcaption, footer, header, hgroup,
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 100%;
+	font: inherit;
+	vertical-align: baseline;
+}
+/* HTML5 display-role reset for older browsers */
+article, aside, details, figcaption, figure,
+footer, header, hgroup, menu, nav, section {
+	display: block;
+}
+body {
+	line-height: 1;
+}
+ol, ul {
+	list-style: none;
+}
+blockquote, q {
+	quotes: none;
+}
+blockquote:before, blockquote:after,
+q:before, q:after {
+	content: '';
+	content: none;
+}
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+
+================
+File: media/vscode.css
+================
+/* Styles to match VS Code's look and feel */
+body {
+	background-color: var(--vscode-editor-background);
+	color: var(--vscode-editor-foreground);
+	font-family: var(--vscode-font-family);
+	font-weight: var(--vscode-font-weight);
+	font-size: var(--vscode-font-size);
+	padding: 10px;
+}
+
+a {
+	color: var(--vscode-textLink-foreground);
+	text-decoration: none;
+}
+
+a:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}
+
+button {
+	border: none;
+	padding: 8px 12px;
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	cursor: pointer;
+	border-radius: 2px;
+	font-family: var(--vscode-font-family);
+	font-weight: var(--vscode-font-weight);
+	font-size: var(--vscode-font-size);
+}
+
+button:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+button:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+input[type="text"],
+textarea {
+	display: block;
+	width: calc(100% - 20px); /* Account for padding */
+	padding: 8px;
+	margin-bottom: 10px;
+	border: 1px solid var(--vscode-input-border, var(--vscode-dropdown-border));
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-family: var(--vscode-font-family);
+	font-weight: var(--vscode-font-weight);
+	font-size: var(--vscode-font-size);
+	border-radius: 2px;
+}
+
+input[type="text"]::placeholder,
+textarea::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+input[type="text"]:focus,
+textarea:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	border-color: var(--vscode-focusBorder);
+}
+
+h2, h3 {
+    margin-top: 15px;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--vscode-editorWidget-border, var(--vscode-separator-foreground));
+    margin: 15px 0;
+}
 
 ================
 File: src/test/extension.test.ts
@@ -91,138 +489,63 @@ import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
 
-// System prompt to optimize user input
-const systemPrompt = `
-You are an AI prompt optimizer. Your task is to take the user's input prompt and improve it for clarity, specificity, and effectiveness when used with AI coding tools like Cursor AI or Continue Dev. Return only the optimized prompt without additional commentary.
-Example:
-- Input: "Write some code"
-- Output: "Generate a Python function with clear variable names and error handling for a specific task"
+// System Prompt with Suggestions
+const conversationalSystemPrompt = `
+You are an AI prompt optimizer. Your goal is to refine a user's initial prompt to make it clear, specific, and effective for AI coding tools, potentially offering improvements.
+
+1.  Analyze the user's input prompt for clarity, target, context, and any specified technologies/approaches.
+2.  **Suggestion Opportunity:** Based on the analysis, if you identify a potentially significantly better alternative (e.g., a more modern library, a more suitable architectural pattern, a simpler approach) than what the user might have implied or stated, briefly note this potential suggestion.
+3.  If the prompt is clear and detailed enough (considering any suggestions you might make), proceed to step 6.
+4.  If the prompt is vague or lacks necessary details, ask a *single*, specific clarifying question to gather the most critical missing information first.
+    *   If you noted a potential suggestion in step 2, you can optionally weave it into your question (e.g., "You mentioned library X, have you considered Y which is often used for this? Also, what specific output format do you need?"). Otherwise, just ask the most critical question.
+    *   Consider these areas: Core Task, Language/Framework, Input/Output, UI/Design, Architecture, Testing, Constraints. Prioritize based on the prompt's context. Ask only one question at a time. Do NOT prefix questions with anything.
+5.  **Handling User Replies:**
+    *   If the user provides specific information, incorporate it. Address any response they had to your suggestions.
+    *   If the user provides an open-ended reply (e.g., "suggest something", "use your best judgment"), make a reasonable, common-sense assumption or suggestion for that specific aspect. Briefly state the assumption if helpful.
+    *   After processing the user's reply, assess if enough information exists to generate a high-quality final prompt.
+    *   If critical information is *still* missing, ask the *next* single most important clarifying question (potentially incorporating another suggestion if relevant and not overwhelming).
+    *   If enough information is gathered, proceed to step 6.
+6.  Once sufficient information is gathered, generate the final, optimized prompt, prefixed with "Optimized Prompt:".
+    *   Ensure the final prompt incorporates all gathered details, assumptions, and reflects any agreed-upon suggestions.
+    *   If you made a suggestion earlier that wasn't explicitly discussed but seems beneficial, you can incorporate it into the final prompt (e.g., "...using library Y for better performance.").
+7.  Be concise. Do not add conversational filler. Return only the question or the final optimized prompt.
 `;
 
-// Default config content with model
+
+// Use the conversational system prompt
+const systemPrompt = conversationalSystemPrompt;
+
+// Default config (keep this)
 const defaultConfig = {
   apiUrl: "https://openrouter.ai/api/v1/chat/completions",
   apiKey: "",
-  model: "openai/gpt-4o-mini"
+  model: "openai/gpt-4o-mini" // Consider if a more powerful model is better for conversation
 };
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("🚀 AI Prompt Optimizer extension activated!");
-  
+
   const configDir = context.globalStorageUri.fsPath;
   const configPath = path.join(configDir, 'config.json');
 
-  const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
-    console.log("📨 Received prompt:", request.prompt);
-    const userPrompt = request.prompt.trim();
-    
-    // Notify the user that the optimization process is starting
-    stream.markdown("Optimizing your prompt...\n\n");
+  // --- Add View Provider ---
+  const provider = new PromptOptimizerViewProvider(context.extensionUri, configPath, configDir);
 
-    // Ensure the config directory exists
-    if (!fs.existsSync(configDir)) {
-      fs.mkdirSync(configDir, { recursive: true });
-      console.log("Created configuration directory:", configDir);
-    }
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(PromptOptimizerViewProvider.viewType, provider)
+  );
+  // --- End Add View Provider ---
 
-    let apiUrl: string | undefined;
-    let apiKey: string | undefined;
-    let model: string | undefined;
-
-    // Check if the config file exists
-    if (!fs.existsSync(configPath)) {
-      console.log("Configuration file not found at:", configPath);
-      stream.markdown("Configuration file not found. Please run the 'AI Prompt Optimizer: Configure' command to set up your API details and model.\n");
-      return;
-    }
-
-    try {
-      // Read and parse the config file
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      console.log("Loaded configuration:", config);
-      apiUrl = config.apiUrl;
-      apiKey = config.apiKey;
-      model = config.model || "openai/gpt-4o-mini";
-    } catch (error: any) {
-      console.error("Error reading config.json:", error);
-      stream.markdown("Error reading config.json: " + error.message + "\nRun the 'AI Prompt Optimizer: Configure' command to fix it.\n");
-      return;
-    }
-
-    // Check if API URL and key are available
-    if (!apiUrl || !apiKey) {
-      console.log("Missing API URL or key in config.json");
-      stream.markdown("Missing API URL or key in config.json. Run the 'AI Prompt Optimizer: Configure' command to update it.\n");
-      return;
-    }
-
-    // Make the API request to optimize the prompt
-    try {
-      console.log("Making API request to:", apiUrl);
-      const response = await axios.post(
-        apiUrl,
-        {
-          model: model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-          ],
-          max_tokens: 150,
-          temperature: 0.7
-        },
-        {
-          headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
-
-      // Log the API response
-      console.log("API Response:", response.data);
-
-      const optimizedPrompt = response.data.choices[0].message.content.trim();
-
-      // Display the original and optimized prompt
-      stream.markdown(`### Your Original Prompt:\n"${userPrompt}"\n\n`);
-      stream.markdown(`### Optimized Prompt (using ${model}):\n"${optimizedPrompt}"\n\n`);
-
-      // Provide a button to copy the optimized prompt
-      stream.button({
-        command: 'ai-prompt-optimizer.copyPrompt',
-        title: 'Copy Optimized Prompt',
-        arguments: [optimizedPrompt]
-      });
-    } catch (error: any) {
-      console.error("🔥 API call failed:", {
-        url: apiUrl,
-        model: model,
-        headers: {
-          Authorization: `Bearer ${apiKey?.slice(0, 6)}...`,
-          "Content-Type": "application/json"
-        },
-        error: error.response?.data || error.message
-      });
-
-      // Handle API errors
-      const err = error.response?.data?.error?.message || JSON.stringify(error.response?.data || error.message);
-      stream.markdown(`❌ **API Error:** ${err}`);
-    }
-  };
-
-  // Register the chat participant
-  const participant = vscode.chat.createChatParticipant('aiPromptOptimizer', handler);
-  context.subscriptions.push(participant);
-
-  // Register the 'Copy Optimized Prompt' command
+  // Register the 'Copy Optimized Prompt' command (keep this)
+  // Note: This might need adjustment depending on how the final UI presents the result
   context.subscriptions.push(
     vscode.commands.registerCommand('ai-prompt-optimizer.copyPrompt', (prompt: string) => {
       vscode.env.clipboard.writeText(prompt);
-      vscode.window.showInformationMessage('Optimized prompt copied to clipboard!');
+      vscode.window.showInformationMessage('Copied to clipboard!');
     })
   );
 
-  // Register the 'Configure' command
+  // Register the 'Configure' command (keep this)
   context.subscriptions.push(
     vscode.commands.registerCommand('ai-prompt-optimizer.configure', async () => {
       if (!fs.existsSync(configDir)) {
@@ -240,9 +563,240 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage('Edit your API URL, key, and model in config.json, then save the file.');
     })
   );
+
+  // Register the 'Show View' command (keep this)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ai-prompt-optimizer.showView', () => {
+      console.log("Command 'ai-prompt-optimizer.showView' called.");
+      // Attempt to reveal the view container
+       vscode.commands.executeCommand('workbench.view.extension.ai-prompt-optimizer-activitybar');
+    })
+  );
 }
 
+// --- Add View Provider Class ---
+class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
+
+  public static readonly viewType = 'aiPromptOptimizerView'; // Must match the ID in package.json
+
+  private _view?: vscode.WebviewView;
+  private _conversationHistory: { role: string; content: string }[] = []; // Store conversation history
+
+  constructor(
+    private readonly _extensionUri: vscode.Uri,
+    private readonly _configPath: string,
+    private readonly _configDir: string
+  ) { }
+
+  public resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    context: vscode.WebviewViewResolveContext,
+    _token: vscode.CancellationToken,
+  ) {
+    this._view = webviewView;
+
+    webviewView.webview.options = {
+      // Allow scripts in the webview
+      enableScripts: true,
+      localResourceRoots: [
+        this._extensionUri
+      ]
+    };
+
+    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+
+    // Handle messages from the webview
+    webviewView.webview.onDidReceiveMessage(async data => {
+      switch (data.type) {
+        case 'optimizePrompt': // Message type from JS when user sends input
+          {
+            const userMessageContent = data.value;
+            console.log("Received message from webview:", userMessageContent);
+
+            // If it's the first message, initialize history
+            if (this._conversationHistory.length === 0) {
+                this._conversationHistory.push({ role: "system", content: systemPrompt });
+            }
+            // Add user's message to history
+            this._conversationHistory.push({ role: "user", content: userMessageContent });
+
+            // Show loading/thinking state in webview
+            this._view?.webview.postMessage({ type: 'showLoading' });
+
+            try {
+                // Call API with current history
+                const aiResponseMessage = await this._optimizePromptApiCall(this._conversationHistory);
+
+                // Add AI's response to history
+                this._conversationHistory.push(aiResponseMessage);
+
+                // Send AI response content to webview
+                this._view?.webview.postMessage({ type: 'addMessage', role: aiResponseMessage.role, value: aiResponseMessage.content });
+
+            } catch (error: any) {
+                const errorMessage = error.message || 'An unknown error occurred during optimization.';
+                console.error("Optimization Error:", error);
+                vscode.window.showErrorMessage(`Optimization Failed: ${errorMessage}`);
+                this._view?.webview.postMessage({ type: 'showError', value: `API Error: ${errorMessage}` });
+                // Remove the last user message and potentially the system prompt if the call failed early
+                if (this._conversationHistory.length > 0 && this._conversationHistory[this._conversationHistory.length - 1].role === 'user') {
+                    this._conversationHistory.pop();
+                    if (this._conversationHistory.length === 1 && this._conversationHistory[0].role === 'system') {
+                        this._conversationHistory = []; // Reset if only system prompt remains after user pop
+                    }
+                }
+            }
+            break;
+          }
+        case 'clearChat': // Add a way to clear the chat/history
+            {
+                this._conversationHistory = [];
+                this._view?.webview.postMessage({ type: 'clearChat' }); // Tell webview to clear its display
+                console.log("Conversation history cleared.");
+                break;
+            }
+        case 'copyToClipboard': // Handle copy request from webview
+          {
+            // Ensure we copy only the *final* optimized prompt content if possible
+            const finalPromptPrefix = "Optimized Prompt:";
+            let textToCopy = data.value;
+            if (textToCopy.startsWith(finalPromptPrefix)) {
+                textToCopy = textToCopy.substring(finalPromptPrefix.length).trim();
+            }
+            // Use the command which shows feedback
+            vscode.commands.executeCommand('ai-prompt-optimizer.copyPrompt', textToCopy);
+            break;
+          }
+        case 'showError': // Add a case to handle errors from webview if needed
+            vscode.window.showErrorMessage(data.value);
+            break;
+      }
+    });
+  }
+
+  // Modified to accept history and return the full message object
+  private async _optimizePromptApiCall(messages: { role: string; content: string }[]): Promise<{ role: string; content: string }> {
+      let apiUrl: string | undefined;
+      let apiKey: string | undefined;
+      let model: string | undefined;
+
+      // --- Config reading logic (same as before) ---
+      if (!fs.existsSync(this._configDir)) { fs.mkdirSync(this._configDir, { recursive: true }); }
+      if (!fs.existsSync(this._configPath)) {
+          console.log("Configuration file not found, creating default:", this._configPath);
+          try {
+              fs.writeFileSync(this._configPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
+              apiUrl = defaultConfig.apiUrl; apiKey = defaultConfig.apiKey; model = defaultConfig.model;
+              vscode.window.showWarningMessage("Config file created. Please run 'AI Prompt Optimizer: Configure' to add your API key.");
+          } catch (error: any) { throw new Error(`Failed to create config file: ${error.message}. Please run the Configure command.`); }
+      } else {
+          try {
+              const config = JSON.parse(fs.readFileSync(this._configPath, 'utf-8'));
+              apiUrl = config.apiUrl; apiKey = config.apiKey; model = config.model || defaultConfig.model;
+          } catch (error: any) { throw new Error(`Error reading config.json: ${error.message}. Run the Configure command to fix it.`); }
+      }
+      if (!apiUrl || !apiKey) { throw new Error("Missing API URL or key in config.json. Run the 'AI Prompt Optimizer: Configure' command."); }
+      // --- End Config reading logic ---
+
+      try {
+          console.log("Making API request with history:", messages);
+          const response = await axios.post(
+              apiUrl,
+              {
+                  model: model,
+                  messages: messages, // Send the whole history
+                  max_tokens: 250, // Increased max_tokens slightly for conversation
+                  temperature: 0.7
+              },
+              { headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" } }
+          );
+
+          console.log("API Response:", response.data);
+
+          if (response.data && response.data.choices && response.data.choices.length > 0 && response.data.choices[0].message) {
+              // Return the full message object (role: 'assistant', content: '...')
+              return response.data.choices[0].message;
+          } else {
+              console.error("Unexpected API response structure:", response.data);
+              throw new Error("Received an unexpected response structure from the API.");
+          }
+
+      } catch (error: any) {
+          console.error("🔥 API call failed:", {
+              url: apiUrl,
+              model: model,
+              // Avoid logging full history here for brevity/privacy if needed
+              error: error.response?.data || error.message
+          });
+
+          const err = error.response?.data?.error?.message || JSON.stringify(error.response?.data || error.message);
+          throw new Error(err); // Throw the specific API error message
+      }
+  }
+
+
+  // --- _getHtmlForWebview for chat display ---
+  private _getHtmlForWebview(webview: vscode.Webview): string {
+    // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.js'));
+
+    // Do the same for the stylesheet.
+    const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'reset.css'));
+    const styleVSCodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vscode.css'));
+    const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css'));
+
+    // Use a nonce to only allow specific scripts to be run
+    const nonce = getNonce();
+
+    // HTML structure for chat display
+    return `<!DOCTYPE html>
+			<html lang="en">
+			<head>
+				<meta charset="UTF-8">
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<link href="${styleResetUri}" rel="stylesheet">
+				<link href="${styleVSCodeUri}" rel="stylesheet">
+				<link href="${styleMainUri}" rel="stylesheet">
+				<title>AI Prompt Optimizer</title>
+			</head>
+			<body>
+                <h2>Optimize AI Prompt</h2>
+
+                <div id="conversation-area" class="conversation-area">
+                    <!-- Conversation history will be appended here by JS -->
+                </div>
+
+                <div class="input-area">
+                    <textarea id="prompt-input" rows="3" placeholder="Enter your initial prompt or reply here..."></textarea>
+                    <div class="button-group">
+                        <button id="send-button">Send</button>
+                        <button id="clear-button">Clear Chat</button>
+                    </div>
+                </div>
+
+                <!-- Copy button might be added dynamically by JS later -->
+                <button id="copy-button" style="display: none; margin-top: 10px;">Copy Final Prompt</button>
+
+				<script nonce="${nonce}" src="${scriptUri}"></script>
+			</body>
+			</html>`;
+  }
+}
+// --- End View Provider Class ---
+
+
 export function deactivate() {}
+
+// Helper function for nonce (keep this)
+function getNonce() {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}
 
 ================
 File: .gitignore
@@ -347,7 +901,7 @@ File: package.json
     "Other"
   ],
   "activationEvents": [
-    "onChatParticipant:aiPromptOptimizer"
+    "onView:aiPromptOptimizerView"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -357,18 +911,33 @@ File: package.json
         "title": "Copy Optimized Prompt"
       },
       {
+        "command": "ai-prompt-optimizer.showView",
+        "title": "Show AI Prompt Optimizer"
+      },
+      {
         "command": "ai-prompt-optimizer.configure",
         "title": "AI Prompt Optimizer: Configure"
       }
     ],
-    "chatParticipants": [
-      {
-        "id": "aiPromptOptimizer",
-        "name": "ai-prompt-optimizer",
-        "description": "Helps optimize prompts for AI coding tools like Cursor AI and Continue Dev",
-        "isSticky": true
-      }
-    ]
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ai-prompt-optimizer-activitybar",
+          "title": "AI Prompt Optimizer",
+          "icon": "$(lightbulb)"
+        }
+      ]
+    },
+    "views": {
+      "ai-prompt-optimizer-activitybar": [
+        {
+          "id": "aiPromptOptimizerView",
+          "name": "Optimize Prompt",
+          "type": "webview",
+          "contextualTitle": "AI Prompt Optimizer"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run esbuild",

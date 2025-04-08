@@ -12,11 +12,21 @@
     let lastOptimizedPrompt = ''; // Store the final prompt for copying
 
     // --- Helper Function to Add Messages to UI ---
-    function addMessageToUI(role, text) {
+    function addMessageToUI(role, text, isThinking = false) {
         if (!conversationArea) return;
+
+        // Remove previous thinking indicator if it exists
+        const existingThinking = conversationArea?.querySelector('.thinking-indicator');
+        if (existingThinking) {
+            existingThinking.remove();
+        }
+
 
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', role === 'user' ? 'user-message' : 'assistant-message');
+        if (isThinking) {
+            messageDiv.classList.add('thinking-indicator'); // Add class to identify thinking message
+        }
 
         // Basic text formatting (can be enhanced)
         const contentDiv = document.createElement('div');
@@ -119,7 +129,7 @@
                     // Disable input/button while loading
                     promptInput.disabled = true;
                     sendButton.disabled = true;
-                    addMessageToUI('assistant', 'Thinking...'); // Simple text indicator
+                    addMessageToUI('assistant', 'Thinking...', true); // Pass thinking flag
                     copyButton.style.display = 'none';
                     lastOptimizedPrompt = '';
                     break;

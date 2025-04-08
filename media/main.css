@@ -26,26 +26,38 @@ h2 {
     border-radius: 5px;
     white-space: pre-wrap; /* Preserve whitespace and wrap */
     word-wrap: break-word;
+    max-width: 80%; /* Prevent messages from taking full width */
+    clear: both; /* Ensure messages don't overlap floats */
 }
 
 .user-message {
     background-color: var(--vscode-list-activeSelectionBackground, #094771); /* Use selection background or a fallback */
     color: var(--vscode-list-activeSelectionForeground, white);
-    text-align: right; /* Align user messages to the right */
-    margin-left: 20%; /* Indent from left */
+    /* text-align: right; Align user messages to the right */
+    float: right; /* Float user messages to the right */
+    /* margin-left: 20%; Indent from left */
 }
 
 .assistant-message {
     background-color: var(--vscode-list-inactiveSelectionBackground, var(--vscode-editorWidget-background, #37373d)); /* Use inactive selection or editor widget background */
     color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
-    text-align: left;
-    margin-right: 20%; /* Indent from right */
+    /* text-align: left; */
+    float: left; /* Float assistant messages to the left */
+   /* margin-right: 20%; Indent from right */
 }
+
+/* Style for thinking indicator */
+.thinking-indicator {
+    font-style: italic;
+    color: var(--vscode-descriptionForeground);
+}
+
 
 .input-area {
     display: flex;
     flex-direction: column;
     flex-shrink: 0; /* Prevent shrinking */
+    margin-top: 5px; /* Add some space above input */
 }
 
 textarea#prompt-input {
@@ -70,4 +82,10 @@ button#copy-button {
     margin-top: 10px;
     width: 100%; /* Full width */
     flex-shrink: 0;
+}
+
+/* Style for error messages (can be applied to assistant messages) */
+.assistant-message.error {
+    color: var(--vscode-errorForeground);
+    border: 1px solid var(--vscode-inputValidation-errorBorder);
 }
