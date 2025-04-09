@@ -282,9 +282,7 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
     const styleMainUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css')
     );
-    const codiconUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'media', 'codicon.css')
-    );
+   
     const nonce = getNonce();
 
     return `<!DOCTYPE html>
@@ -296,15 +294,14 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
             <link href="${styleResetUri}" rel="stylesheet">
             <link href="${styleVSCodeUri}" rel="stylesheet">
             <link href="${styleMainUri}" rel="stylesheet">
-            <link href="${codiconUri}" rel="stylesheet">
             <title>AI Prompt Optimizer</title>
         </head>
         <body>
             <div class="header">
-                <h2>Optimize AI Prompt</h2>
-                <button id="settings-button" class="icon-button" title="Open Settings">
-                    <i class="codicon codicon-gear"></i>
-                </button>
+                  <h2>AI Prompt Optimizer</h2>
+                  <button id="settings-button" class="icon-button" title="Settings">
+                      <i class="codicon codicon-settings-gear"></i>
+                  </button>
             </div>
 
             <div id="conversation-area" class="conversation-area">

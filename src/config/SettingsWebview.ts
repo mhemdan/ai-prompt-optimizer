@@ -18,14 +18,13 @@ export class SettingsWebview {
     public static render(extensionUri: vscode.Uri, configManager: ConfigManager) {
         const panel = vscode.window.createWebviewPanel(
             SettingsWebview.viewType,
-            'AI Prompt Optimizer Settings',
+            'Settings', // Shorter title
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
                 localResourceRoots: [extensionUri]
             }
         );
-
         return new SettingsWebview(panel, configManager);
     }
 
