@@ -31,7 +31,8 @@
       },
       {
         "command": "ai-prompt-optimizer.openConfig",
-        "title": "AI Prompt Optimizer: Open Configuration"
+        "title": "Settings",  
+        "icon": "$(gear)"
       },
       {
         "command": "ai-prompt-optimizer.resetConfig",
@@ -62,7 +63,8 @@
         {
           "command": "ai-prompt-optimizer.openConfig",
           "when": "view == aiPromptOptimizerView",
-          "group": "navigation"
+          "group": "navigation",
+          "icon": "$(gear)"
         }
       ]
     }
