@@ -46,7 +46,6 @@ Additional Info:
 Directory Structure
 ================================================================
 media/
-  codicon.css
   main.css
   main.js
   reset.css
@@ -74,6 +73,7 @@ src/
 .vscodeignore
 CHANGELOG.md
 eslint.config.mjs
+LICENSE
 package.json
 README.md
 tsconfig.json
@@ -82,14 +82,6 @@ vsc-extension-quickstart.md
 ================================================================
 Files
 ================================================================
-
-================
-File: media/codicon.css
-================
-@font-face {
-    font-family: "codicon";
-    src: url("./codicon.ttf") format("truetype");
-}
 
 ================
 File: media/main.css
@@ -107,39 +99,32 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+    padding: 0 5px;
 }
 
 h2 {
-    margin-bottom: 10px;
-    flex-shrink: 0;
+    font-size: 14px;
+    margin: 0;
+    font-weight: normal;
+    color: var(--vscode-foreground);
 }
 
 /* Settings Button */
 .icon-button {
     background: none;
     border: none;
-    padding: 5px;
+    padding: 4px;
     cursor: pointer;
-    color: var(--vscode-foreground);
+    color: var(--vscode-icon-foreground);
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 3px;
 }
 
 .icon-button:hover {
     background-color: var(--vscode-toolbar-hoverBackground);
-    border-radius: 3px;
-}
-
-.codicon {
-    font-family: codicon;
-    font-size: 16px;
-    line-height: 16px;
-}
-
-.codicon-gear:before {
-    content: "\ea6c";
 }
 
 /* Conversation Area */
@@ -198,9 +183,15 @@ h2 {
 
 /* Copy Button Styles */
 .copy-button-container {
-    margin-top: 10px;
+    position: sticky;
+    bottom: 10px;
+    right: 10px;
     text-align: right;
-    clear: both;
+    padding: 10px;
+    background-color: var(--vscode-editor-background);
+    z-index: 100;
+    margin-top: 10px;
+    display: none;
 }
 
 .copy-button {
@@ -211,7 +202,6 @@ h2 {
     border-radius: 3px;
     cursor: pointer;
     font-size: 12px;
-    display: inline-block; /* Changed from 'none' to make it visible */
 }
 
 .copy-button:hover {
@@ -248,13 +238,14 @@ textarea#prompt-input {
 File: media/main.js
 ================
 // media/main.js
-
 (function () {
     const vscode = acquireVsCodeApi();
     const promptInput = document.getElementById('prompt-input');
     const sendButton = document.getElementById('send-button');
     const clearButton = document.getElementById('clear-button');
     const conversationArea = document.getElementById('conversation-area');
+    const copyButtonContainer = document.getElementById('copy-button-container');
+    const copyButton = document.getElementById('copy-button');
     let lastOptimizedPrompt = '';
 
     // --- Helper Functions ---
@@ -276,38 +267,45 @@ File: media/main.js
 
     function addMessageToUI(role, text, isOptimizedPrompt = false) {
         removeThinkingIndicator();
-
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', role === 'user' ? 'user-message' : 'assistant-message');
-
+        
         const contentDiv = document.createElement('div');
         contentDiv.textContent = text;
         messageDiv.appendChild(contentDiv);
+        
+        conversationArea.appendChild(messageDiv);
+        conversationArea.scrollTop = conversationArea.scrollHeight;
 
-        // Only show copy button for optimized prompts
+        // Handle optimized prompt separately
         if (isOptimizedPrompt && text.includes('Optimized Prompt:')) {
             const optimizedPrompt = text.split('Optimized Prompt:')[1].trim();
             lastOptimizedPrompt = optimizedPrompt;
-            
-            const copyButtonDiv = document.createElement('div');
-            copyButtonDiv.classList.add('copy-button-container');
-            
-            const copyBtn = document.createElement('button');
-            copyBtn.textContent = 'Copy Prompt';
-            copyBtn.classList.add('copy-button');
-            copyBtn.onclick = () => {
-                vscode.postMessage({
-                    type: 'copyToClipboard',
-                    value: optimizedPrompt
-                });
-            };
-            
-            copyButtonDiv.appendChild(copyBtn);
-            messageDiv.appendChild(copyButtonDiv);
+            showCopyButton(optimizedPrompt);
         }
+    }
 
-        conversationArea.appendChild(messageDiv);
-        conversationArea.scrollTop = conversationArea.scrollHeight;
+    function showCopyButton(optimizedPrompt) {
+        copyButton.onclick = () => {
+            vscode.postMessage({
+                type: 'copyToClipboard',
+                value: optimizedPrompt
+            });
+        };
+        copyButtonContainer.style.display = 'block';
+    }
+
+    function hideCopyButton() {
+        copyButtonContainer.style.display = 'none';
+    }
+
+    function clearChat() {
+        conversationArea.innerHTML = '';
+        promptInput.value = '';
+        promptInput.disabled = false;
+        sendButton.disabled = false;
+        lastOptimizedPrompt = '';
+        hideCopyButton();
     }
 
     // --- Event Listeners ---
@@ -343,39 +341,39 @@ File: media/main.js
     // --- Handle Messages from Extension Host ---
     window.addEventListener('message', event => {
         const message = event.data;
-
         switch (message.type) {
-            case 'addMessage':
-                {
-                    promptInput.disabled = false;
-                    sendButton.disabled = false;
-                    addMessageToUI(message.role, message.value, message.isOptimizedPrompt);
-                    break;
-                }
-            case 'showLoading':
-                {
-                    promptInput.disabled = true;
-                    sendButton.disabled = true;
-                    addThinkingIndicator();
-                    break;
-                }
-            case 'clearChat':
-                {
-                    conversationArea.innerHTML = '';
-                    promptInput.value = '';
-                    promptInput.disabled = false;
-                    sendButton.disabled = false;
-                    lastOptimizedPrompt = '';
-                    break;
-                }
-            case 'showError':
-                {
-                    removeThinkingIndicator();
-                    addMessageToUI('assistant', `Error: ${message.value}`);
-                    promptInput.disabled = false;
-                    sendButton.disabled = false;
-                    break;
-                }
+            case 'addMessage': {
+                promptInput.disabled = false;
+                sendButton.disabled = false;
+                addMessageToUI(message.role, message.value, message.isOptimizedPrompt);
+                break;
+            }
+            case 'showLoading': {
+                promptInput.disabled = true;
+                sendButton.disabled = true;
+                addThinkingIndicator();
+                break;
+            }
+            case 'clearChat': {
+                clearChat();
+                break;
+            }
+            case 'showError': {
+                removeThinkingIndicator();
+                addMessageToUI('assistant', `Error: ${message.value}`);
+                promptInput.disabled = false;
+                sendButton.disabled = false;
+                break;
+            }
+            case 'copySuccess': {
+                // Optional: Show a temporary success message
+                const successDiv = document.createElement('div');
+                successDiv.textContent = 'Copied to clipboard!';
+                successDiv.className = 'copy-success-message';
+                copyButtonContainer.appendChild(successDiv);
+                setTimeout(() => successDiv.remove(), 2000);
+                break;
+            }
         }
     });
 }());
@@ -1020,14 +1018,13 @@ export class SettingsWebview {
     public static render(extensionUri: vscode.Uri, configManager: ConfigManager) {
         const panel = vscode.window.createWebviewPanel(
             SettingsWebview.viewType,
-            'AI Prompt Optimizer Settings',
+            'Settings', // Shorter title
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
                 localResourceRoots: [extensionUri]
             }
         );
-
         return new SettingsWebview(panel, configManager);
     }
 
@@ -1424,27 +1421,60 @@ export class ContextAnalyzer {
 File: src/prompts/systemPrompt.ts
 ================
 // src/prompts/systemPrompt.ts
+export const enhancedSystemPrompt = `You are an AI prompt optimizer focused on helping users create better prompts for their coding tasks. You handle various types of requests including feature implementation, bug fixes, code explanations, and code reviews.
 
-export const enhancedSystemPrompt = `You are an AI prompt optimizer focused on helping users create better prompts for their coding tasks. Follow these guidelines:
+[Previous guidelines remain the same...]
 
-1. Start with a brief question to understand the user's needs. For example:
-   - "What specific features would you like in your AI speaker webpage?"
-   - "Are you looking for any particular functionality?"
-   - "What's the main purpose of your AI speaker webpage?"
+4. IMPORTANT: Always format the final optimized prompt with the exact phrase "Optimized Prompt:" followed by the detailed specifications. This marker is essential for the UI functionality.
 
-2. DO NOT provide implementation details until you understand the requirements.
+Format examples:
 
-3. After gathering requirements, create an optimized prompt that starts with "Optimized Prompt:"
+For Feature Implementation:
+"[Your previous dialogue and questions...]
 
-Example good interaction:
-User: "can you build an ai speaker web page"
-Assistant: "I'd be happy to help! First, what specific features would you like your AI speaker webpage to have? For example, voice control, music playback, or smart home integration?"
+Optimized Prompt:
+Create [project type] with the following specifications:
 
-Remember:
-- Always ask questions first
-- Don't provide implementation until requirements are clear
-- Keep the conversation focused
-- End with an optimized prompt when requirements are gathered`;
+Core Features:
+- [List features]
+[...]"
+
+For Bug Fixes:
+"[Your previous dialogue and questions...]
+
+Optimized Prompt:
+Debug and fix [issue] with the following approach:
+
+Problem Analysis:
+- [Current behavior]
+[...]"
+
+For Code Explanation:
+"[Your previous dialogue and questions...]
+
+Optimized Prompt:
+Explain [code component/feature] with focus on:
+
+Code Structure:
+- [Architecture overview]
+[...]"
+
+[Rest of the guidelines remain the same...]
+
+Example of correct format:
+User: "can you help me building an ai speaker web page"
+Assistant: [Ask clarifying questions...]
+User: "nothing in my mind for now except it is for AI teacher"
+Assistant: "Based on your requirements...
+
+Optimized Prompt:
+Create an AI Teacher Web Page with the following specifications:
+
+Core Features:
+- Interactive chat interface
+[Rest of the specifications...]"
+
+CRITICAL: Always include "Optimized Prompt:" exactly as shown before the final specification list. This marker is required for proper UI functionality.`
 
 ================
 File: src/templates/TemplateEngine.ts
@@ -1651,50 +1681,50 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
 
   private async _handleOptimizePrompt(userMessageContent: string) {
     try {
-        // Remove any existing thinking indicator first
-        this._view?.webview.postMessage({ type: 'removeThinking' });
-        
-        // Show new thinking indicator
-        this._view?.webview.postMessage({ type: 'showLoading' });
+      // Remove any existing thinking indicator first
+      this._view?.webview.postMessage({ type: 'removeThinking' });
 
-        // Initialize conversation if first message
-        if (this._conversationHistory.length === 0) {
-            this._conversationHistory.push({ 
-                role: "system", 
-                content: enhancedSystemPrompt 
-            });
-        }
+      // Show new thinking indicator
+      this._view?.webview.postMessage({ type: 'showLoading' });
 
-        // Add user message to history
-        this._conversationHistory.push({ 
-            role: "user", 
-            content: userMessageContent 
+      // Initialize conversation if first message
+      if (this._conversationHistory.length === 0) {
+        this._conversationHistory.push({
+          role: "system",
+          content: enhancedSystemPrompt
         });
+      }
 
-        // Get API response
-        const aiResponseMessage = await this._optimizePromptApiCall(
-            this._conversationHistory,
-            {}
-        );
+      // Add user message to history
+      this._conversationHistory.push({
+        role: "user",
+        content: userMessageContent
+      });
 
-        // Add response to history
-        this._conversationHistory.push(aiResponseMessage);
+      // Get API response
+      const aiResponseMessage = await this._optimizePromptApiCall(
+        this._conversationHistory,
+        {}
+      );
 
-        // Check if this contains an optimized prompt
-        const hasOptimizedPrompt = aiResponseMessage.content.includes('Optimized Prompt:');
+      // Add response to history
+      this._conversationHistory.push(aiResponseMessage);
 
-        // Send response to webview
-        this._view?.webview.postMessage({
-            type: 'addMessage',
-            role: aiResponseMessage.role,
-            value: aiResponseMessage.content,
-            isOptimizedPrompt: hasOptimizedPrompt
-        });
+      // Check if this contains an optimized prompt
+      const hasOptimizedPrompt = aiResponseMessage.content.includes('Optimized Prompt:');
+
+      // Send response to webview
+      this._view?.webview.postMessage({
+        type: 'addMessage',
+        role: aiResponseMessage.role,
+        value: aiResponseMessage.content,
+        isOptimizedPrompt: hasOptimizedPrompt
+      });
 
     } catch (error) {
-        this._handleError(error);
+      this._handleError(error);
     }
-}
+  }
 
 
   private _addMessageToConversation(role: string, content: string) {
@@ -1780,10 +1810,16 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async _handleCopyToClipboard(text: string) {
-    await vscode.env.clipboard.writeText(text);
-    vscode.window.showInformationMessage('Copied to clipboard!');
+    try {
+      await vscode.env.clipboard.writeText(text);
+      this._view?.webview.postMessage({
+        type: 'copySuccess'
+      });
+      vscode.window.showInformationMessage('Prompt copied to clipboard!');
+    } catch (error) {
+      vscode.window.showErrorMessage('Failed to copy to clipboard');
+    }
   }
-
   private async _handleApplyTemplate(templateId: string, variables: Record<string, string>) {
     try {
       const template = this.templateEngine.getTemplate(templateId);
@@ -1819,46 +1855,54 @@ class PromptOptimizerViewProvider implements vscode.WebviewViewProvider {
     const styleMainUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css')
     );
-    const codiconUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'media', 'codicon.css')
-    );
-
+   
     const nonce = getNonce();
 
     return `<!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <link href="${styleResetUri}" rel="stylesheet">
-                <link href="${styleVSCodeUri}" rel="stylesheet">
-                <link href="${styleMainUri}" rel="stylesheet">
-                <link href="${codiconUri}" rel="stylesheet">
-                <title>AI Prompt Optimizer</title>
-            </head>
-            <body>
-                <div class="header">
-                    <h2>Optimize AI Prompt</h2>
-                    <button id="settings-button" class="icon-button" title="Open Settings">
-                        <i class="codicon codicon-gear"></i>
-                    </button>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <link href="${styleResetUri}" rel="stylesheet">
+            <link href="${styleVSCodeUri}" rel="stylesheet">
+            <link href="${styleMainUri}" rel="stylesheet">
+            <title>AI Prompt Optimizer</title>
+        </head>
+        <body>
+            <div class="header">
+                  <h2>AI Prompt Optimizer</h2>
+                  <button id="settings-button" class="icon-button" title="Settings">
+                      <i class="codicon codicon-settings-gear"></i>
+                  </button>
+            </div>
+
+            <div id="conversation-area" class="conversation-area">
+                <!-- Conversation messages will be added here -->
+            </div>
+
+            <!-- Copy button container positioned outside conversation area -->
+            <div id="copy-button-container" class="copy-button-container">
+                <button id="copy-button" class="copy-button">Copy Prompt</button>
+            </div>
+
+            <div class="input-area">
+                <textarea 
+                    id="prompt-input" 
+                    rows="3" 
+                    placeholder="Enter your initial prompt or reply here..."
+                ></textarea>
+                <div class="button-group">
+                    <button id="send-button">Send</button>
+                    <button id="clear-button">Clear Chat</button>
                 </div>
-                <div id="conversation-area" class="conversation-area">
-                    <!-- Conversation history will be appended here by JS -->
-                </div>
-                <div class="input-area">
-                    <textarea id="prompt-input" rows="3" placeholder="Enter your initial prompt or reply here..."></textarea>
-                    <div class="button-group">
-                        <button id="send-button">Send</button>
-                        <button id="clear-button">Clear Chat</button>
-                    </div>
-                </div>
-                <button id="copy-button" style="display: none;">Copy Final Prompt</button>
-                <script nonce="${nonce}" src="${scriptUri}"></script>
-            </body>
-            </html>`;
+            </div>
+
+            <script nonce="${nonce}" src="${scriptUri}"></script>
+        </body>
+        </html>`;
   }
+
 }
 
 function registerCommands(
@@ -2015,6 +2059,31 @@ export default [{
 }];
 
 ================
+File: LICENSE
+================
+MIT License
+
+     Copyright (c) 2025 Mohamed Hemdan
+
+     Permission is hereby granted, free of charge, to any person obtaining a copy
+     of this software and associated documentation files (the "Software"), to deal
+     in the Software without restriction, including without limitation the rights
+     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+     copies of the Software, and to permit persons to whom the Software is
+     furnished to do so, subject to the following conditions:
+
+     The above copyright notice and this permission notice shall be included in all
+     copies or substantial portions of the Software.
+
+     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+     AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+     SOFTWARE.
+
+================
 File: package.json
 ================
 {
@@ -2050,7 +2119,8 @@ File: package.json
       },
       {
         "command": "ai-prompt-optimizer.openConfig",
-        "title": "AI Prompt Optimizer: Open Configuration"
+        "title": "Settings",  
+        "icon": "$(gear)"
       },
       {
         "command": "ai-prompt-optimizer.resetConfig",
@@ -2081,7 +2151,8 @@ File: package.json
         {
           "command": "ai-prompt-optimizer.openConfig",
           "when": "view == aiPromptOptimizerView",
-          "group": "navigation"
+          "group": "navigation",
+          "icon": "$(gear)"
         }
       ]
     }
